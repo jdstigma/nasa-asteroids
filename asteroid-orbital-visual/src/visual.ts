@@ -158,6 +158,7 @@ export class Visual implements IVisual {
             .style("position", "relative")
             .style("width", "100%")
             .style("height", "100%")
+            .style("background", "#050510")
             .style("overflow", "hidden");
 
         this.svg = this.container.append("svg")
@@ -258,6 +259,11 @@ export class Visual implements IVisual {
             .attr("width",  this.width)
             .attr("height", this.height);
 
+        // Size the background rect explicitly (percentage sizing can fail on first render)
+        this.svg.select(".bg")
+            .attr("width",  this.width)
+            .attr("height", this.height);
+
         this.cx = this.width  / 2;
         this.cy = this.height / 2;
         this.scale = Math.min(this.width, this.height) / 2 / MAX_AU;
@@ -266,6 +272,22 @@ export class Visual implements IVisual {
         this.svg.select(".sun")
             .attr("cx", this.cx)
             .attr("cy", this.cy);
+
+        // Empty-state message when no data has been mapped yet
+        const hasData = !!(options.dataViews && options.dataViews[0] && options.dataViews[0].table
+            && options.dataViews[0].table.rows.length > 0);
+        this.svg.selectAll(".empty-msg").remove();
+        if (!hasData) {
+            this.svg.append("text")
+                .classed("empty-msg", true)
+                .attr("x", this.cx)
+                .attr("y", this.height - 24)
+                .attr("text-anchor", "middle")
+                .attr("fill", "#8899bb")
+                .attr("font-family", "sans-serif")
+                .attr("font-size", "13px")
+                .text("Drag asteroid fields into the Data Fields bucket to plot orbits");
+        }
 
         // Read formatting settings
         if (options.dataViews && options.dataViews[0]) {

@@ -13,8 +13,12 @@ __pycache__/
 *.pyo
 .ipynb_checkpoints/
 
-# Power BI package output (regenerate with: pbiviz package)
+# pbiviz build output is ignored, but the published release/ copy is tracked
 *.pbiviz
+!release/*.pbiviz
+
+# webpack analyzer reports
+webpack.statistics.*.html
 
 # Power BI Desktop files (binary, often large)
 *.pbix

@@ -34,18 +34,25 @@ jupyter notebook setup_and_run.ipynb
 ```
 The notebook handles flattening, Node verification, pbiviz install, certificate trust, and dev server launch in sequence.
 
-### 3. Manual setup
+### 3. Quickest path — import the prebuilt visual
+No build needed. The packaged visual is published in [`release/`](release/):
+
+1. Power BI Desktop → Visualizations pane → **`...` → Import a visual from a file**
+2. Select [`release/asteroid-orbital-map-1.0.0.pbiviz`](release/asteroid-orbital-map-1.0.0.pbiviz)
+3. Load the data via **Home → Get data → Web** and paste:
+   `https://raw.githubusercontent.com/jdstigma/nasa-asteroids/main/asteroids_flat.csv`
+   (or paste [`powerquery_web_connection.m`](powerquery_web_connection.m) into the Advanced Editor for typed columns)
+4. Drag the fields into the visual's **Data Fields** bucket and set numeric fields to **Don't summarize**
+
+### 4. Build from source instead
 ```bash
 # Install Node.js LTS from https://nodejs.org first, then:
 npm install -g powerbi-visuals-tools
 cd asteroid-orbital-visual
 npm install
-pbiviz --install-cert
-pbiviz start
+pbiviz install-cert    # then trust the generated cert
+pbiviz package         # → dist/*.pbiviz
 ```
-
-Enable **Developer Mode** in Power BI Desktop:  
-File → Options → Security → ✅ Enable custom visual developer mode
 
 ### 4. Map these fields in Power BI
 
