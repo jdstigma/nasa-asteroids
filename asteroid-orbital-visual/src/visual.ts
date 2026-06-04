@@ -750,13 +750,12 @@ export class Visual implements IVisual {
             : this.asteroids
         ).filter(a => a.a > 0 && a.a <= MAX_AU);
 
-        // An asteroid only appears once the sim clock reaches its first observation
-        // date (discovery). Objects with no known observation date are always shown.
-        const discovered = visibleAsteroids.filter(a =>
-            isNaN(a.firstSeenDay) || this.daysSinceJ2000 >= a.firstSeenDay);
-
-        // The fade just brightens the ones currently in a close-approach window.
-        const dotData = discovered.map(a => ({ ast: a, fade: this.orbitFadeInfo(a).fade }));
+        // Each asteroid follows its observation lifecycle: it appears at first
+        // observation, stays through its tracked arc, and vanishes after the orbit
+        // line has faded out. Objects with no observation dates are always shown.
+        const dotData = visibleAsteroids
+            .map(a => ({ ast: a, fade: this.orbitFadeInfo(a).fade }))
+            .filter(d => isNaN(d.ast.firstSeenDay) || d.fade > 0.01);
         const activeDots = dotData.filter(d => d.fade > 0.01);
 
         // Compute asteroid true anomaly based on period derived from semi-major axis (Kepler's 3rd law)
@@ -787,7 +786,7 @@ export class Visual implements IVisual {
             })
             .merge(asteroidDots)
             .attr("r", d => dotRadius(d.ast) * (0.7 + d.fade * 0.6))
-            .attr("opacity", d => 0.3 + d.fade * 0.7)
+            .attr("opacity", d => Math.min(1, 0.2 + d.fade * 0.8))
             .each(function(d) {
                 const [px, py] = self.asteroidPos(d.ast);
                 d3.select(this).attr("cx", px).attr("cy", py);
