@@ -24,14 +24,14 @@ interface PlanetDef {
 }
 
 const PLANETS: PlanetDef[] = [
-    { name: "Mercury", color: "#b5b5b5", radius: 3,  a: 0.387,  e: 0.206, period: 87.97,    omega: 29.1  },
-    { name: "Venus",   color: "#e8cda0", radius: 4,  a: 0.723,  e: 0.007, period: 224.70,   omega: 54.9  },
-    { name: "Earth",   color: "#4fa3e0", radius: 5,  a: 1.000,  e: 0.017, period: 365.25,   omega: 102.9 },
-    { name: "Mars",    color: "#c1440e", radius: 4,  a: 1.524,  e: 0.093, period: 686.97,   omega: 336.0 },
-    { name: "Jupiter", color: "#c88b3a", radius: 9,  a: 5.203,  e: 0.049, period: 4332.59,  omega: 14.3  },
-    { name: "Saturn",  color: "#e4d191", radius: 8,  a: 9.537,  e: 0.057, period: 10759.22, omega: 92.4  },
-    { name: "Uranus",  color: "#7de8e8", radius: 6,  a: 19.19,  e: 0.046, period: 30685.40, omega: 170.9 },
-    { name: "Neptune", color: "#5b73e8", radius: 6,  a: 30.07,  e: 0.010, period: 60190.03, omega: 44.9  },
+    { name: "Mercury", color: "#d8d8e0", radius: 3,  a: 0.387,  e: 0.206, period: 87.97,    omega: 29.1  },
+    { name: "Venus",   color: "#ffd24d", radius: 4,  a: 0.723,  e: 0.007, period: 224.70,   omega: 54.9  },
+    { name: "Earth",   color: "#2ea6ff", radius: 5,  a: 1.000,  e: 0.017, period: 365.25,   omega: 102.9 },
+    { name: "Mars",    color: "#ff4d2e", radius: 4,  a: 1.524,  e: 0.093, period: 686.97,   omega: 336.0 },
+    { name: "Jupiter", color: "#ff9a3c", radius: 9,  a: 5.203,  e: 0.049, period: 4332.59,  omega: 14.3  },
+    { name: "Saturn",  color: "#f5e05a", radius: 8,  a: 9.537,  e: 0.057, period: 10759.22, omega: 92.4  },
+    { name: "Uranus",  color: "#3df0e0", radius: 6,  a: 19.19,  e: 0.046, period: 30685.40, omega: 170.9 },
+    { name: "Neptune", color: "#6a7bff", radius: 6,  a: 30.07,  e: 0.010, period: 60190.03, omega: 44.9  },
 ];
 
 const MAX_AU = 32;          // clip anything beyond this for the full view
@@ -228,6 +228,14 @@ export class Visual implements IVisual {
         const pm = pulseFilter.append("feMerge");
         pm.append("feMergeNode").attr("in", "blur");
         pm.append("feMergeNode").attr("in", "SourceGraphic");
+
+        // Glow filter for planets (colored halo from the planet's own fill)
+        const planetGlow = defs.append("filter").attr("id", "planetGlow").attr("x", "-150%").attr("y", "-150%").attr("width", "400%").attr("height", "400%");
+        planetGlow.append("feGaussianBlur").attr("stdDeviation", "3.5").attr("result", "blur");
+        const pgm = planetGlow.append("feMerge");
+        pgm.append("feMergeNode").attr("in", "blur");
+        pgm.append("feMergeNode").attr("in", "blur");
+        pgm.append("feMergeNode").attr("in", "SourceGraphic");
 
         // Info box (bottom-left)
         this.infoBox = this.container.append("div")
@@ -481,8 +489,8 @@ export class Visual implements IVisual {
                 .attr("d", this.orbitPath(p.a, p.e, p.omega))
                 .attr("fill", "none")
                 .attr("stroke", p.color)
-                .attr("stroke-opacity", 0.25)
-                .attr("stroke-width", 0.8);
+                .attr("stroke-opacity", 0.4)
+                .attr("stroke-width", 1);
         });
 
         // Planet labels (static positions at current angle for clarity)
@@ -709,6 +717,10 @@ export class Visual implements IVisual {
             .classed("planet-dot", true)
             .attr("r", d => d.radius)
             .attr("fill", d => d.color)
+            .attr("stroke", "#ffffff")
+            .attr("stroke-width", 0.6)
+            .attr("stroke-opacity", 0.85)
+            .attr("filter", "url(#planetGlow)")
             .on("mouseover", function(event, d) {
                 self.showTooltip(d.name, event.clientX, event.clientY);
             })
