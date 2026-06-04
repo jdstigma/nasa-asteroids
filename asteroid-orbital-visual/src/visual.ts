@@ -590,49 +590,50 @@ export class Visual implements IVisual {
 
         planetDots.exit().remove();
 
-        // Update asteroid dot positions
+        // Asteroid dots — only show the ones currently making a close approach
+        // (same fade window as the orbit lines), so inner-belt objects don't pile
+        // into one dense knot over the Sun and hide Mercury/Venus.
         const visibleAsteroids = (this.showHazardousOnly
             ? this.asteroids.filter(a => a.hazardous)
             : this.asteroids
         ).filter(a => a.a > 0 && a.a <= MAX_AU);
 
+        const activeDots = visibleAsteroids
+            .map(a => ({ ast: a, fade: this.orbitFadeInfo(a).fade }))
+            .filter(d => d.fade > 0.01);
+
         // Compute asteroid true anomaly based on period derived from semi-major axis (Kepler's 3rd law)
         // Period (days) = 365.25 * a^1.5  (for a in AU, relative to Sun's mass)
-        const asteroidDots = this.asteroidLayer.selectAll<SVGCircleElement, AsteroidOrbit>("circle.asteroid-dot")
-            .data(visibleAsteroids, d => d.name);
+        const asteroidDots = this.asteroidLayer.selectAll<SVGCircleElement, { ast: AsteroidOrbit; fade: number }>("circle.asteroid-dot")
+            .data(activeDots, d => d.ast.name);
+
+        const dotRadius = (a: AsteroidOrbit): number => {
+            const base = a.hazardous ? 3.5 : 2;
+            if (!a.diameterM) return base;
+            return Math.min(6, base + Math.log10(a.diameterM + 1) * 0.5);
+        };
 
         asteroidDots.enter()
             .append("circle")
             .classed("asteroid-dot", true)
-            .attr("r", d => {
-                const base = d.hazardous ? 3.5 : 2;
-                if (!d.diameterM) return base;
-                return Math.min(6, base + Math.log10(d.diameterM + 1) * 0.5);
-            })
-            .attr("fill", d => d.hazardous ? "#ff6666" : "#aaaaaa")
-            .attr("filter", d => d.hazardous ? "url(#pulse)" : "none")
+            .attr("fill", d => d.ast.hazardous ? "#ff6666" : "#cccccc")
+            .attr("filter", d => d.ast.hazardous ? "url(#pulse)" : "none")
             .attr("cursor", "pointer")
             .on("mouseover", function(event, d) {
-                const nearApproach = self.closestApproachToEarth(d);
-                self.showAsteroidTooltip(d, nearApproach, event.clientX, event.clientY);
-                d3.select(this).attr("r", parseFloat(d3.select(this).attr("r")) * 1.8);
+                const nearApproach = self.closestApproachToEarth(d.ast);
+                self.showAsteroidTooltip(d.ast, nearApproach, event.clientX, event.clientY);
+                d3.select(this).attr("r", dotRadius(d.ast) * 1.8);
             })
             .on("mouseout",  function(event, d) {
-                const base = d.hazardous ? 3.5 : 2;
-                const r = !d.diameterM ? base : Math.min(6, base + Math.log10(d.diameterM + 1) * 0.5);
-                d3.select(this).attr("r", r);
+                d3.select(this).attr("r", dotRadius(d.ast));
                 self.hideTooltip();
             })
             .merge(asteroidDots)
+            .attr("r", d => dotRadius(d.ast))
+            .attr("opacity", d => Math.min(1, 0.25 + d.fade * 0.75))
             .each(function(d) {
-                const period = 365.25 * Math.pow(d.a, 1.5);
-                const M      = (2 * Math.PI * self.daysSinceJ2000) / period;
-                const Mn     = ((M % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-                const nu     = meanToTrueAnomaly(Mn, d.e) / DEG;
-                const [x, y] = orbitXY(d.a, d.e, d.omega, nu);
-                d3.select(this)
-                    .attr("cx", self.cx + x * self.scale)
-                    .attr("cy", self.cy - y * self.scale);
+                const [px, py] = self.asteroidPos(d.ast);
+                d3.select(this).attr("cx", px).attr("cy", py);
             });
 
         asteroidDots.exit().remove();
@@ -641,7 +642,7 @@ export class Visual implements IVisual {
         const simDate = new Date(this.J2000_MS + this.daysSinceJ2000 * 86400000);
         this.infoBox.html(
             `Sim date: ${simDate.getFullYear()}-${String(simDate.getMonth()+1).padStart(2,"0")}-${String(simDate.getDate()).padStart(2,"0")}<br>` +
-            `Asteroids: ${visibleAsteroids.length} | Speed: ${this.animSpeed} days/frame`
+            `Active approaches: ${activeDots.length} of ${visibleAsteroids.length} | Speed: ${this.animSpeed} days/frame`
         );
     }
 
