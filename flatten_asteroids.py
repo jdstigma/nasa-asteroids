@@ -15,6 +15,9 @@ import csv
 import ast
 import json
 import os
+import sys
+
+csv.field_size_limit(10_000_000)
 
 INPUT_FILE  = os.path.join(os.path.dirname(__file__), "asteroids_data.csv")
 OUTPUT_FILE = os.path.join(os.path.dirname(__file__), "asteroids_flat.csv")
