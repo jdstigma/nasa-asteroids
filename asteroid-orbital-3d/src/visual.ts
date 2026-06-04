@@ -141,14 +141,42 @@ export class Visual implements IVisual {
         this.animate();
     }
 
+    // Soft radial-gradient sprite texture used for glows and round dots
+    private glowTexture: THREE.Texture;
+    private makeGlowTexture(): THREE.Texture {
+        const c = document.createElement("canvas");
+        c.width = c.height = 64;
+        const ctx = c.getContext("2d")!;
+        const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+        g.addColorStop(0,   "rgba(255,255,255,1)");
+        g.addColorStop(0.4, "rgba(255,255,255,0.55)");
+        g.addColorStop(1,   "rgba(255,255,255,0)");
+        ctx.fillStyle = g; ctx.fillRect(0, 0, 64, 64);
+        const tex = new THREE.Texture(c); tex.needsUpdate = true;
+        return tex;
+    }
+
+    private addGlowSprite(parent: THREE.Object3D, color: number, scale: number): void {
+        const mat = new THREE.SpriteMaterial({
+            map: this.glowTexture, color, blending: THREE.AdditiveBlending,
+            transparent: true, depthWrite: false,
+        });
+        const sprite = new THREE.Sprite(mat);
+        sprite.scale.setScalar(scale);
+        parent.add(sprite);
+    }
+
     // -----------------------------------------------------------------------
     private buildScene(): void {
-        // Sun
+        this.glowTexture = this.makeGlowTexture();
+
+        // Sun + glow
         const sun = new THREE.Mesh(
             new THREE.SphereGeometry(5, 32, 32),
             new THREE.MeshBasicMaterial({ color: 0xffe066 })
         );
         this.scene.add(sun);
+        this.addGlowSprite(sun, 0xffdd66, 34);
         const sunGlow = new THREE.PointLight(0xffffff, 2.2, 0, 0.0);
         this.scene.add(sunGlow);
         this.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
@@ -171,7 +199,10 @@ export class Visual implements IVisual {
         this.asteroidGeom = new THREE.BufferGeometry();
         this.asteroidGeom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(3), 3));
         this.asteroidGeom.setAttribute("color", new THREE.BufferAttribute(new Float32Array(3), 3));
-        const aMat = new THREE.PointsMaterial({ size: 2.4, vertexColors: true, sizeAttenuation: true, transparent: true });
+        const aMat = new THREE.PointsMaterial({
+            size: 3, vertexColors: true, sizeAttenuation: true, transparent: true,
+            map: this.glowTexture, alphaTest: 0.02, depthWrite: false,
+        });
         this.asteroidPoints = new THREE.Points(this.asteroidGeom, aMat);
         this.scene.add(this.asteroidPoints);
     }
@@ -182,6 +213,7 @@ export class Visual implements IVisual {
             new THREE.MeshBasicMaterial({ color: p.color })
         );
         (mesh as any).userData = p;
+        this.addGlowSprite(mesh, p.color, p.radius * 5);
         this.scene.add(mesh);
         this.planetMeshes.push(mesh);
 
@@ -230,7 +262,7 @@ export class Visual implements IVisual {
     public update(options: VisualUpdateOptions): void {
         this.width = options.viewport.width;
         this.height = options.viewport.height;
-        this.renderer.setSize(this.width, this.height, false);
+        this.renderer.setSize(this.width, this.height);   // updates canvas CSS size too (keeps it centered)
         this.camera.aspect = this.width / Math.max(1, this.height);
         this.camera.updateProjectionMatrix();
 
