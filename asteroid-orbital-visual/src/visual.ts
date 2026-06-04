@@ -127,9 +127,11 @@ export class Visual implements IVisual {
     private host:       powerbi.extensibility.visual.IVisualHost;
     private container:  d3.Selection<HTMLDivElement, unknown, null, undefined>;
     private svg:        d3.Selection<SVGSVGElement, unknown, null, undefined>;
+    private zoomLayer:     d3.Selection<SVGGElement, unknown, null, undefined>;
     private planetLayer:   d3.Selection<SVGGElement, unknown, null, undefined>;
     private asteroidLayer: d3.Selection<SVGGElement, unknown, null, undefined>;
     private labelLayer:    d3.Selection<SVGGElement, unknown, null, undefined>;
+    private zoomBehavior:  d3.ZoomBehavior<SVGSVGElement, unknown>;
     private infoBox:    d3.Selection<HTMLDivElement, unknown, null, undefined>;
     private legend:     d3.Selection<HTMLDivElement, unknown, null, undefined>;
 
@@ -188,16 +190,19 @@ export class Visual implements IVisual {
                 .attr("fill", `rgba(255,255,255,${(0.3 + Math.random() * 0.7).toFixed(2)})`);
         }
 
-        this.planetLayer   = this.svg.append("g").classed("planets",   true);
-        this.asteroidLayer = this.svg.append("g").classed("asteroids", true);
-        this.labelLayer    = this.svg.append("g").classed("labels",    true);
+        // Zoomable group — everything inside scales/pans together via d3.zoom
+        this.zoomLayer = this.svg.append("g").classed("zoom-layer", true);
 
-        // Sun
-        this.svg.append("circle")
+        // Sun (inside zoom layer so it scales with the system)
+        this.zoomLayer.append("circle")
             .classed("sun", true)
             .attr("r", 10)
             .attr("fill", "#ffe484")
             .attr("filter", "url(#sunGlow)");
+
+        this.planetLayer   = this.zoomLayer.append("g").classed("planets",   true);
+        this.asteroidLayer = this.zoomLayer.append("g").classed("asteroids", true);
+        this.labelLayer    = this.zoomLayer.append("g").classed("labels",    true);
 
         // Sun glow filter
         const defs = this.svg.append("defs");
@@ -248,7 +253,20 @@ export class Visual implements IVisual {
             <div><span style="color:#aaaaaa">●</span> Non-Hazardous</div>
             <div><span style="color:#ffe484">●</span> Sun</div>
             <div style="margin-top:4px;color:#888;font-size:10px">Hover asteroid for details</div>
+            <div style="color:#888;font-size:10px">Scroll to zoom · drag to pan · double-click to reset</div>
         `);
+
+        // Zoom & pan — scroll wheel zooms, drag pans, double-click resets
+        this.zoomBehavior = d3.zoom<SVGSVGElement, unknown>()
+            .scaleExtent([0.4, 40])
+            .on("zoom", (event) => {
+                this.zoomLayer.attr("transform", event.transform.toString());
+            });
+        this.svg.call(this.zoomBehavior);
+        this.svg.on("dblclick.zoom", () => {
+            this.svg.transition().duration(400)
+                .call(this.zoomBehavior.transform, d3.zoomIdentity);
+        });
 
         // Start current sim time roughly at today
         this.daysSinceJ2000 = (Date.now() - this.J2000_MS) / 86400000;
