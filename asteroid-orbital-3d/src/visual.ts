@@ -99,6 +99,7 @@ export class Visual implements IVisual {
     private asteroidPoints: THREE.Points;
     private asteroidGeom: THREE.BufferGeometry;
     private orbitPool: Map<string, THREE.Line> = new Map();
+    private labelPool: Map<string, HTMLDivElement> = new Map();
 
     private width = 800; private height = 600;
     private asteroids: Asteroid[] = [];
@@ -358,10 +359,11 @@ export class Visual implements IVisual {
         return (isNaN(a.firstSeenDay) || now >= a.firstSeenDay) && (isNaN(a.lastSeenDay) || now <= a.lastSeenDay);
     }
 
-    // fade 0..1 over the observation lifecycle (ramp to approach, wind down to last obs)
-    private fadeOf(a: Asteroid): number {
+    // fade 0..1 over the observation lifecycle (ramp to approach, wind down to last obs),
+    // plus the orbiting body of the driving approach and the |days| to that approach.
+    private fadeInfo(a: Asteroid): { fade: number; body: string; daysToApproach: number } {
         const now = this.daysSinceJ2000;
-        let best = 0;
+        let best = 0, body = "", dta = Infinity;
         for (const ap of a.approaches) {
             const approach = ap.dayJ2000;
             const start = (!isNaN(a.firstSeenDay) && a.firstSeenDay < approach) ? a.firstSeenDay : approach - 730;
@@ -369,9 +371,9 @@ export class Visual implements IVisual {
             let f = 0;
             if (now >= start && now <= approach)      f = (approach - start) > 0 ? 0.15 + 0.85 * ((now - start) / (approach - start)) : 1;
             else if (now > approach && now <= end)    f = (end - approach) > 0 ? 1 - (now - approach) / (end - approach) : 0;
-            if (f > best) best = f;
+            if (f > best) { best = f; body = ap.orbitingBody; dta = Math.abs(now - approach); }
         }
-        return best;
+        return { fade: best, body, daysToApproach: dta };
     }
 
     private asteroidVec(a: Asteroid): THREE.Vector3 {
@@ -397,27 +399,39 @@ export class Visual implements IVisual {
         const col  = this.asteroidGeom.getAttribute("acolor") as THREE.BufferAttribute;
         const size = this.asteroidGeom.getAttribute("size") as THREE.BufferAttribute;
         const list = this.showHazardousOnly ? this.asteroids.filter(a => a.hazardous) : this.asteroids;
+        // Fast blink toggle (~6 Hz) for asteroids sitting at their close-approach point
+        const blinkOn = Math.floor(performance.now() / 80) % 2 === 0;
         let n = 0;
         const activeForLines: { a: Asteroid; fade: number }[] = [];
+        const activeForLabels: { a: Asteroid; body: string; v: THREE.Vector3 }[] = [];
         for (const a of list) {
             if (!this.inObsWindow(a)) continue;
-            const fade = this.fadeOf(a);
+            const info = this.fadeInfo(a);
+            const fade = info.fade;
             const v = this.asteroidVec(a);
             pos.setXYZ(n, v.x, v.y, v.z);
-            const b = 0.4 + 0.6 * fade;
-            if (a.hazardous) col.setXYZ(n, 1.0, 0.35 * b, 0.3 * b);
+
+            // At the close-approach point (within ~10 days) the asteroid blinks on/off fast
+            const atApproach = info.daysToApproach <= 10;
+            let b = 0.4 + 0.6 * fade;
+            if (atApproach && !blinkOn) b = 0;          // blink "off" frame
+            else if (atApproach)        b = 1.3;        // blink "on" frame (extra bright)
+            if (a.hazardous) col.setXYZ(n, Math.min(1, 1.0 * (b || 0)), 0.35 * b, 0.3 * b);
             else             col.setXYZ(n, 0.8 * b, 0.82 * b, 0.9 * b);
-            // size by estimated diameter, gently scaled, larger near approach
+
             const base = a.hazardous ? 6 : 4;
             const dscale = a.diameterM ? Math.min(10, base + Math.log10(a.diameterM + 1) * 2.2) : base;
-            size.setX(n, dscale * (0.6 + 0.4 * fade));
+            size.setX(n, dscale * (0.6 + 0.4 * fade) * (atApproach ? 1.4 : 1));
             n++;
+
             if (fade >= this.lineThreshold) activeForLines.push({ a, fade });
+            if (info.body && fade >= this.lineThreshold) activeForLabels.push({ a, body: info.body, v });
         }
         this.asteroidGeom.setDrawRange(0, n);
         pos.needsUpdate = true; col.needsUpdate = true; size.needsUpdate = true;
 
         this.updateOrbitLines(activeForLines);
+        this.updateLabels(activeForLabels);
     }
 
     private updateOrbitLines(active: { a: Asteroid; fade: number }[]): void {
@@ -444,6 +458,41 @@ export class Visual implements IVisual {
                 (line.material as THREE.Material).dispose();
                 this.orbitPool.delete(name);
             }
+        }
+    }
+
+    // Orbiting-body labels for active asteroids, projected from 3D to screen space
+    private updateLabels(active: { a: Asteroid; body: string; v: THREE.Vector3 }[]): void {
+        const seen = new Set<string>();
+        const tmp = new THREE.Vector3();
+        for (const { a, body, v } of active) {
+            seen.add(a.name);
+            tmp.copy(v).project(this.camera);
+            if (tmp.z > 1) { // behind the camera — hide
+                const ex = this.labelPool.get(a.name);
+                if (ex) ex.style.display = "none";
+                continue;
+            }
+            const x = (tmp.x * 0.5 + 0.5) * this.width;
+            const y = (-tmp.y * 0.5 + 0.5) * this.height;
+            let el = this.labelPool.get(a.name);
+            if (!el) {
+                el = document.createElement("div");
+                Object.assign(el.style, {
+                    position: "absolute", pointerEvents: "none", fontFamily: "sans-serif",
+                    fontSize: "10px", color: "#dfe9ff", textShadow: "0 0 3px #000, 0 0 3px #000",
+                    transform: "translate(-50%, -140%)", whiteSpace: "nowrap",
+                } as CSSStyleDeclaration);
+                this.container.appendChild(el);
+                this.labelPool.set(a.name, el);
+            }
+            el.textContent = body;
+            el.style.display = "block";
+            el.style.left = x + "px";
+            el.style.top  = y + "px";
+        }
+        for (const [name, el] of this.labelPool) {
+            if (!seen.has(name)) { el.remove(); this.labelPool.delete(name); }
         }
     }
 
