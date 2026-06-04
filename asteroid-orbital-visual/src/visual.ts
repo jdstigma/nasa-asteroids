@@ -509,8 +509,8 @@ export class Visual implements IVisual {
     // -----------------------------------------------------------------------
     // Orbit-line lifecycle for each approach:
     //   first observation → close approach : ramp from faint to full
-    //   close approach    → last observation: held at full (tracked arc)
-    //   last observation  → +trailDays      : fade out
+    //   close approach    → last observation: ramp back down, reaching 0 (gone) at
+    //                                          the last observation date
     // Missing observation dates fall back to a trailDays lead-up / fade.
     private orbitFadeInfo(asteroid: AsteroidOrbit): { fade: number; body: string } {
         let best = 0;
@@ -522,20 +522,19 @@ export class Visual implements IVisual {
             if (isNaN(ap.dayJ2000)) continue;
             const approachDay = ap.dayJ2000;
             const startDay = (!isNaN(seen) && seen < approachDay) ? seen : approachDay - this.trailDays;
-            // Hold the line until the last observation (if it comes after the approach)
-            const holdEnd  = (!isNaN(last) && last > approachDay) ? last : approachDay;
+            // The line disappears at the last observation date (or trailDays past the
+            // approach when no later observation date is available, e.g. future events).
+            const endDay   = (!isNaN(last) && last > approachDay) ? last : approachDay + this.trailDays;
 
             let f = 0;
             if (now >= startDay && now <= approachDay) {
                 // lead-up: faint at first sighting, full at the approach
                 const span = approachDay - startDay;
                 f = span > 0 ? 0.15 + 0.85 * ((now - startDay) / span) : 1;
-            } else if (now > approachDay && now <= holdEnd) {
-                // tracked arc: held at full from approach through last observation
-                f = 1;
-            } else if (now > holdEnd && now <= holdEnd + this.trailDays) {
-                // fade out after the last observation
-                f = 1 - (now - holdEnd) / this.trailDays;
+            } else if (now > approachDay && now <= endDay) {
+                // wind-down: full at the approach, gone at the last observation date
+                const span = endDay - approachDay;
+                f = span > 0 ? 1 - (now - approachDay) / span : 0;
             }
             if (f > best) { best = f; body = ap.orbitingBody; }
         }
