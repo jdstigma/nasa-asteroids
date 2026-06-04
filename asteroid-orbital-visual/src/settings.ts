@@ -14,9 +14,9 @@ class DisplayCard extends FormattingSettingsCard {
     animationSpeed = new formattingSettings.NumUpDown({
         name:        "animationSpeed",
         displayName: "Animation Speed (days/frame)",
-        value:       5,
-        options:     { minValue: { value: 1, type: powerbi.visuals.ValidatorType.Min },
-                       maxValue: { value: 100, type: powerbi.visuals.ValidatorType.Max } },
+        value:       1,
+        options:     { minValue: { value: 0.25, type: powerbi.visuals.ValidatorType.Min },
+                       maxValue: { value: 100,  type: powerbi.visuals.ValidatorType.Max } },
     });
 
     trailDays = new formattingSettings.NumUpDown({

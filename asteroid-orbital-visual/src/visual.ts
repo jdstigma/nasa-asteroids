@@ -132,7 +132,7 @@ export class Visual implements IVisual {
     private asteroids: AsteroidOrbit[] = [];
     private animFrame: number | null   = null;
     private daysSinceJ2000: number     = 0;
-    private animSpeed: number          = 5;   // days per animation frame
+    private animSpeed: number          = 1;   // days per animation frame
     private showHazardousOnly: boolean = false;
     private showAllPlanets: boolean    = true;
     private trailDays: number          = 730; // how long an orbit line stays visible after an approach, then fades
@@ -309,7 +309,7 @@ export class Visual implements IVisual {
             if (objs) {
                 this.showAllPlanets    = (objs["display"]?.["showAllPlanets"]    as boolean) ?? true;
                 this.showHazardousOnly = (objs["display"]?.["showHazardousOnly"] as boolean) ?? false;
-                this.animSpeed         = (objs["display"]?.["animationSpeed"]    as number)  ?? 5;
+                this.animSpeed         = (objs["display"]?.["animationSpeed"]    as number)  ?? 1;
                 this.trailDays         = (objs["display"]?.["trailDays"]         as number)  ?? 730;
             }
             this.parseData(options.dataViews[0]);
