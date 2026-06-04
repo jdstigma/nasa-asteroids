@@ -458,22 +458,34 @@ export class Visual implements IVisual {
 
     // -----------------------------------------------------------------------
     // Orbit-line fade: an asteroid's orbit is fully visible at the moment of a
-    // close approach, then fades to nothing over `trailDays`. Returns 0..1.
-    private orbitFade(asteroid: AsteroidOrbit): number {
+    // close approach, then fades to nothing over `trailDays`. Returns the fade
+    // strength (0..1) and the orbiting body of the approach driving it.
+    private orbitFadeInfo(asteroid: AsteroidOrbit): { fade: number; body: string } {
         let best = 0;
+        let body = "";
         for (const ap of asteroid.approaches) {
             if (isNaN(ap.dayJ2000)) continue;
             const age = this.daysSinceJ2000 - ap.dayJ2000;
             if (age >= 0 && age <= this.trailDays) {
                 const f = 1 - age / this.trailDays;
-                if (f > best) best = f;
+                if (f > best) { best = f; body = ap.orbitingBody; }
             }
         }
-        return best;
+        return { fade: best, body };
+    }
+
+    // Current on-screen position of an asteroid along its orbit
+    private asteroidPos(a: AsteroidOrbit): [number, number] {
+        const period = 365.25 * Math.pow(a.a, 1.5);
+        const M  = (2 * Math.PI * this.daysSinceJ2000) / period;
+        const Mn = ((M % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+        const nu = meanToTrueAnomaly(Mn, a.e) / DEG;
+        const [x, y] = orbitXY(a.a, a.e, a.omega, nu);
+        return [this.cx + x * this.scale, this.cy - y * this.scale];
     }
 
     // Draw only the orbit lines that are currently "active" (recently approached),
-    // fading them out over time. Keeps the map readable instead of a red haze.
+    // fading them out over time. Also labels the active asteroids with name + body.
     private updateAsteroidOrbits(): void {
         const visibleAsteroids = (this.showHazardousOnly
             ? this.asteroids.filter(a => a.hazardous)
@@ -482,11 +494,13 @@ export class Visual implements IVisual {
 
         // Compute fade for each and keep only the ones currently visible
         const active = visibleAsteroids
-            .map(a => ({ ast: a, fade: this.orbitFade(a) }))
+            .map(a => { const info = this.orbitFadeInfo(a); return { ast: a, fade: info.fade, body: info.body }; })
             .filter(d => d.fade > 0.01);
 
         const self = this;
-        const sel = this.asteroidLayer.selectAll<SVGPathElement, { ast: AsteroidOrbit; fade: number }>("path.asteroid-orbit")
+
+        // --- Orbit lines ---
+        const sel = this.asteroidLayer.selectAll<SVGPathElement, { ast: AsteroidOrbit; fade: number; body: string }>("path.asteroid-orbit")
             .data(active, d => d.ast.name);
 
         sel.enter()
@@ -501,6 +515,30 @@ export class Visual implements IVisual {
             .attr("stroke-opacity", d => (d.ast.hazardous ? 0.85 : 0.5) * d.fade);
 
         sel.exit().remove();
+
+        // --- Data labels (name + orbiting body) for the active asteroids ---
+        const labels = this.labelLayer.selectAll<SVGTextElement, { ast: AsteroidOrbit; fade: number; body: string }>("text.asteroid-label")
+            .data(active, d => d.ast.name);
+
+        labels.enter()
+            .append("text")
+            .classed("asteroid-label", true)
+            .attr("font-family", "sans-serif")
+            .attr("font-size", "9px")
+            .attr("fill", "#e3e9f7")
+            .attr("stroke", "#050510")
+            .attr("stroke-width", 0.4)
+            .attr("paint-order", "stroke")
+            .attr("pointer-events", "none")
+            .merge(labels)
+            .each(function(d) {
+                const [px, py] = self.asteroidPos(d.ast);
+                d3.select(this).attr("x", px + 6).attr("y", py - 6);
+            })
+            .attr("opacity", d => Math.min(1, d.fade * 1.3))
+            .text(d => d.body ? `${d.ast.name}  ·  ${d.body}` : d.ast.name);
+
+        labels.exit().remove();
     }
 
     // -----------------------------------------------------------------------
