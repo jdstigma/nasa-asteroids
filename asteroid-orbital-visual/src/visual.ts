@@ -149,6 +149,8 @@ export class Visual implements IVisual {
     private showHazardousOnly: boolean = false;
     private showAllPlanets: boolean    = true;
     private trailDays: number          = 730; // how long an orbit line stays visible after an approach, then fades
+    private fitAU: number              = 4;   // AU radius the initial view is fitted to (derived from data)
+    private initialZoomApplied: boolean = false;
 
     // Simulation clock bounds (days since J2000). The animation loops between these
     // instead of running forever; derived from the data's close-approach date range.
@@ -266,8 +268,13 @@ export class Visual implements IVisual {
             });
         this.svg.call(this.zoomBehavior);
         this.svg.on("dblclick.zoom", () => {
+            const k = Math.max(0.4, Math.min(MAX_AU / this.fitAU, 40));
+            const t = d3.zoomIdentity
+                .translate(this.cx, this.cy)
+                .scale(k)
+                .translate(-this.cx, -this.cy);
             this.svg.transition().duration(400)
-                .call(this.zoomBehavior.transform, d3.zoomIdentity);
+                .call(this.zoomBehavior.transform, t);
         });
 
         // Start current sim time roughly at today
@@ -329,6 +336,18 @@ export class Visual implements IVisual {
         this.drawPlanetOrbits();
         // Asteroid orbit lines are no longer drawn statically — they appear at each
         // close approach and fade out, handled per-frame in updateMovingBodies().
+
+        // Auto-fit the initial view to the data (once), centered on the Sun.
+        // Scrolling/panning afterwards is preserved; double-click resets to this fit.
+        if (!this.initialZoomApplied && this.zoomBehavior && this.width > 0) {
+            const k = Math.max(0.4, Math.min(MAX_AU / this.fitAU, 40));
+            const t = d3.zoomIdentity
+                .translate(this.cx, this.cy)
+                .scale(k)
+                .translate(-this.cx, -this.cy);
+            this.svg.call(this.zoomBehavior.transform, t);
+            this.initialZoomApplied = true;
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -419,6 +438,20 @@ export class Visual implements IVisual {
             // Start the clock at the beginning of the data window
             this.daysSinceJ2000 = this.simMinDays;
         }
+
+        // Auto-fit radius: frame the bulk of the asteroids by using the 90th-percentile
+        // aphelion distance (a*(1+e)), clamped to a sensible range. Outliers (long-period
+        // objects) are excluded so the inner system isn't squashed.
+        const aphelia = this.asteroids
+            .map(a => a.a * (1 + a.e))
+            .filter(v => v > 0 && v <= MAX_AU)
+            .sort((x, y) => x - y);
+        if (aphelia.length > 0) {
+            const p90 = aphelia[Math.floor(aphelia.length * 0.9)];
+            this.fitAU = Math.max(2.5, Math.min(p90 * 1.15, 12));
+        }
+        // Re-fit on the next update now that the data (and viewport) are known
+        this.initialZoomApplied = false;
     }
 
     // -----------------------------------------------------------------------
