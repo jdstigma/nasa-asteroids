@@ -728,12 +728,18 @@ export class Visual implements IVisual {
             : this.asteroids
         ).filter(a => a.a > 0 && a.a <= MAX_AU);
 
-        // Each asteroid follows its observation lifecycle: it appears at first
-        // observation, stays through its tracked arc, and vanishes after the orbit
-        // line has faded out. Objects with no observation dates are always shown.
+        // A dot is shown only within the asteroid's observation window: it appears at
+        // the first observation date and disappears at the last observation date.
+        // (Missing dates are treated as open-ended so the dot still shows.)
+        const now = this.daysSinceJ2000;
+        const inObsWindow = (a: AsteroidOrbit): boolean =>
+            (isNaN(a.firstSeenDay) || now >= a.firstSeenDay) &&
+            (isNaN(a.lastSeenDay)  || now <= a.lastSeenDay);
+
+        // Fade still brightens the dot near a close approach within that window.
         const dotData = visibleAsteroids
-            .map(a => ({ ast: a, fade: this.orbitFadeInfo(a).fade }))
-            .filter(d => isNaN(d.ast.firstSeenDay) || d.fade > 0.01);
+            .filter(inObsWindow)
+            .map(a => ({ ast: a, fade: this.orbitFadeInfo(a).fade }));
         const activeDots = dotData.filter(d => d.fade > 0.01);
 
         // Compute asteroid true anomaly based on period derived from semi-major axis (Kepler's 3rd law)
