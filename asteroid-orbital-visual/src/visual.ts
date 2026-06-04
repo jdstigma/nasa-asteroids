@@ -146,6 +146,11 @@ export class Visual implements IVisual {
     private showHazardousOnly: boolean = false;
     private showAllPlanets: boolean    = true;
 
+    // Simulation clock bounds (days since J2000). The animation loops between these
+    // instead of running forever; derived from the data's close-approach date range.
+    private simMinDays: number = -36525;   // default ~1900
+    private simMaxDays: number =  73050;   // default ~2200
+
     // J2000 = 2000-Jan-01.5  →  Unix ms
     private readonly J2000_MS = Date.UTC(2000, 0, 1, 12, 0, 0);
 
@@ -312,11 +317,22 @@ export class Visual implements IVisual {
         const cols  = dataView.table.columns;
         const rows  = dataView.table.rows;
 
-        // Build column index map
+        // Normalize a column name so matching survives aggregation wrappers
+        // e.g. "Sum(Asteroids.semi_major_axis)" or "Sum of semi_major_axis" -> "semi_major_axis"
+        const normalize = (raw: string): string =>
+            (raw || "")
+                .toLowerCase()
+                .replace(/^(sum|count|countnonnull|average|avg|min|max|median|first|last|var|stdev) of /, "")
+                .split(".").pop()!            // last dotted segment
+                .replace(/[^a-z0-9_]/g, "");  // drop parentheses / stray chars
+
+        // Build column index map keyed by normalized name (prefer displayName, fall back to queryName)
         const idx: Record<string, number> = {};
         cols.forEach((c, i) => {
-            const key = (c.queryName || c.displayName || "").split(".").pop()?.toLowerCase() ?? "";
-            idx[key] = i;
+            const keyDisplay = normalize(c.displayName);
+            const keyQuery   = normalize(c.queryName);
+            if (keyDisplay && !(keyDisplay in idx)) idx[keyDisplay] = i;
+            if (keyQuery   && !(keyQuery   in idx)) idx[keyQuery]   = i;
         });
 
         const getStr = (row: powerbi.DataViewTableRow, name: string): string =>
@@ -359,6 +375,25 @@ export class Visual implements IVisual {
         }
 
         this.asteroids = Array.from(map.values()).filter(a => a.a > 0 && a.e < 1);
+
+        // Derive the simulation clock range from the actual close-approach dates,
+        // so the animation loops over the data window instead of counting up forever.
+        let minMs = Infinity, maxMs = -Infinity;
+        for (const ast of this.asteroids) {
+            for (const ap of ast.approaches) {
+                const ms = Date.parse(ap.date);
+                if (!isNaN(ms)) {
+                    if (ms < minMs) minMs = ms;
+                    if (ms > maxMs) maxMs = ms;
+                }
+            }
+        }
+        if (isFinite(minMs) && isFinite(maxMs) && maxMs > minMs) {
+            this.simMinDays = (minMs - this.J2000_MS) / 86400000;
+            this.simMaxDays = (maxMs - this.J2000_MS) / 86400000;
+            // Start the clock at the beginning of the data window
+            this.daysSinceJ2000 = this.simMinDays;
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -424,6 +459,10 @@ export class Visual implements IVisual {
     private startAnimation(): void {
         const tick = () => {
             this.daysSinceJ2000 += this.animSpeed;
+            // Loop back to the start of the data window instead of advancing forever
+            if (this.daysSinceJ2000 > this.simMaxDays) {
+                this.daysSinceJ2000 = this.simMinDays;
+            }
             this.updateMovingBodies();
             this.animFrame = requestAnimationFrame(tick);
         };
