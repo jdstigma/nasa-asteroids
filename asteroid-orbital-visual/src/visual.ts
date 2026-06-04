@@ -209,9 +209,10 @@ export class Visual implements IVisual {
             .attr("fill", "#ffe484")
             .attr("filter", "url(#sunGlow)");
 
-        this.planetLayer   = this.zoomLayer.append("g").classed("planets",   true);
+        // Asteroids first (bottom), then planets on top so they're never obscured
         this.asteroidLayer = this.zoomLayer.append("g").classed("asteroids", true);
         this.labelLayer    = this.zoomLayer.append("g").classed("labels",    true);
+        this.planetLayer   = this.zoomLayer.append("g").classed("planets",   true);
 
         // Sun glow filter
         const defs = this.svg.append("defs");
@@ -279,8 +280,10 @@ export class Visual implements IVisual {
                 .call(this.zoomBehavior.transform, d3.zoomIdentity);
         });
 
-        // Start current sim time roughly at today
-        this.daysSinceJ2000 = (Date.now() - this.J2000_MS) / 86400000;
+        // Fixed window 1930 → 2026; start the clock at the beginning
+        this.simMinDays = (Date.UTC(1930, 0, 1)  - this.J2000_MS) / 86400000;
+        this.simMaxDays = (Date.UTC(2026, 11, 31) - this.J2000_MS) / 86400000;
+        this.daysSinceJ2000 = this.simMinDays;
         this.startAnimation();
     }
 
@@ -424,27 +427,10 @@ export class Visual implements IVisual {
 
         this.asteroids = Array.from(map.values()).filter(a => a.a > 0 && a.e < 1);
 
-        // Derive the simulation clock range from the actual close-approach dates,
-        // so the animation loops over the data window instead of counting up forever.
-        let minMs = Infinity, maxMs = -Infinity;
-        for (const ast of this.asteroids) {
-            for (const ap of ast.approaches) {
-                const ms = Date.parse(ap.date);
-                if (!isNaN(ms)) {
-                    if (ms < minMs) minMs = ms;
-                    if (ms > maxMs) maxMs = ms;
-                }
-            }
-        }
-        if (isFinite(minMs) && isFinite(maxMs) && maxMs > minMs) {
-            this.simMinDays = (minMs - this.J2000_MS) / 86400000;
-            this.simMaxDays = (maxMs - this.J2000_MS) / 86400000;
-            // Start the clock at "today" (clamped to the data window) — the modern era
-            // is dense with approaches, so asteroids appear right away instead of the
-            // sparse early years.
-            const todayDays = (Date.now() - this.J2000_MS) / 86400000;
-            this.daysSinceJ2000 = Math.max(this.simMinDays, Math.min(todayDays, this.simMaxDays));
-        }
+        // Fixed simulation window: 1930 → 2026. Always start from the beginning.
+        this.simMinDays = (Date.UTC(1930, 0, 1)  - this.J2000_MS) / 86400000;
+        this.simMaxDays = (Date.UTC(2026, 11, 31) - this.J2000_MS) / 86400000;
+        this.daysSinceJ2000 = this.simMinDays;
 
         // Reset zoom to the default (log scale already frames everything) on reload
         this.initialZoomApplied = false;
