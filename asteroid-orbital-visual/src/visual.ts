@@ -54,6 +54,7 @@ const COL = {
     magnitude:      "magnitude",
     orbitClass:     "orbit_class_type",
     firstObs:       "first_observation_date",
+    lastObs:        "last_observation_date",
 };
 
 // ---------------------------------------------------------------------------
@@ -70,6 +71,7 @@ interface AsteroidOrbit {
     magnitude:   number;
     orbitClass:  string;
     firstSeenDay: number;   // first_observation_date as days since J2000 (NaN if unknown)
+    lastSeenDay:  number;   // last_observation_date as days since J2000 (NaN if unknown)
     approaches:  ApproachEvent[];
 }
 
@@ -379,7 +381,8 @@ export class Visual implements IVisual {
             if (!name) continue;
 
             if (!map.has(name)) {
-                const obsMs = Date.parse(getStr(row, COL.firstObs));
+                const obsMs     = Date.parse(getStr(row, COL.firstObs));
+                const lastObsMs = Date.parse(getStr(row, COL.lastObs));
                 map.set(name, {
                     name,
                     shortName,
@@ -390,7 +393,8 @@ export class Visual implements IVisual {
                     omega:      getNum(row, COL.periArgument),
                     magnitude:  getNum(row, COL.magnitude),
                     orbitClass: getStr(row, COL.orbitClass),
-                    firstSeenDay: isNaN(obsMs) ? NaN : (obsMs - this.J2000_MS) / 86400000,
+                    firstSeenDay: isNaN(obsMs)     ? NaN : (obsMs     - this.J2000_MS) / 86400000,
+                    lastSeenDay:  isNaN(lastObsMs) ? NaN : (lastObsMs - this.J2000_MS) / 86400000,
                     approaches: [],
                 });
             }
@@ -503,28 +507,35 @@ export class Visual implements IVisual {
     }
 
     // -----------------------------------------------------------------------
-    // Orbit-line trail: the line is drawn from when the asteroid was first observed
-    // up to the close approach, ramping from faint (just discovered) to full (at the
-    // approach), then fading out over `trailDays`. If no observation date is known,
-    // it falls back to a `trailDays` lead-up before the approach.
+    // Orbit-line lifecycle for each approach:
+    //   first observation → close approach : ramp from faint to full
+    //   close approach    → last observation: held at full (tracked arc)
+    //   last observation  → +trailDays      : fade out
+    // Missing observation dates fall back to a trailDays lead-up / fade.
     private orbitFadeInfo(asteroid: AsteroidOrbit): { fade: number; body: string } {
         let best = 0;
         let body = "";
-        const now  = this.daysSinceJ2000;
-        const seen = asteroid.firstSeenDay;
+        const now   = this.daysSinceJ2000;
+        const seen  = asteroid.firstSeenDay;
+        const last  = asteroid.lastSeenDay;
         for (const ap of asteroid.approaches) {
             if (isNaN(ap.dayJ2000)) continue;
             const approachDay = ap.dayJ2000;
             const startDay = (!isNaN(seen) && seen < approachDay) ? seen : approachDay - this.trailDays;
+            // Hold the line until the last observation (if it comes after the approach)
+            const holdEnd  = (!isNaN(last) && last > approachDay) ? last : approachDay;
 
             let f = 0;
             if (now >= startDay && now <= approachDay) {
                 // lead-up: faint at first sighting, full at the approach
                 const span = approachDay - startDay;
                 f = span > 0 ? 0.15 + 0.85 * ((now - startDay) / span) : 1;
-            } else if (now > approachDay && now <= approachDay + this.trailDays) {
-                // fade out after the approach has passed
-                f = 1 - (now - approachDay) / this.trailDays;
+            } else if (now > approachDay && now <= holdEnd) {
+                // tracked arc: held at full from approach through last observation
+                f = 1;
+            } else if (now > holdEnd && now <= holdEnd + this.trailDays) {
+                // fade out after the last observation
+                f = 1 - (now - holdEnd) / this.trailDays;
             }
             if (f > best) { best = f; body = ap.orbitingBody; }
         }
