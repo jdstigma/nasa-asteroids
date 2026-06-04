@@ -6,6 +6,8 @@ on real Keplerian elements, and near-Earth asteroids appear when first observed,
 toward each close approach, and fade out at last observation — all driven by a scrubbable
 1930–2026 timeline.
 
+![3D solar system with asteroid close-approach orbits and labeled planets](assets/preview.png)
+
 ## The two visuals
 
 | | 2D (`asteroid-orbital-visual`) | 3D (`asteroid-orbital-3d`) |
