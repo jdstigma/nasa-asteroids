@@ -53,6 +53,7 @@ const COL = {
     orbitingBody:   "orbiting_body",
     magnitude:      "magnitude",
     orbitClass:     "orbit_class_type",
+    firstObs:       "first_observation_date",
 };
 
 // ---------------------------------------------------------------------------
@@ -68,6 +69,7 @@ interface AsteroidOrbit {
     omega:       number;   // perihelion argument deg
     magnitude:   number;
     orbitClass:  string;
+    firstSeenDay: number;   // first_observation_date as days since J2000 (NaN if unknown)
     approaches:  ApproachEvent[];
 }
 
@@ -377,6 +379,7 @@ export class Visual implements IVisual {
             if (!name) continue;
 
             if (!map.has(name)) {
+                const obsMs = Date.parse(getStr(row, COL.firstObs));
                 map.set(name, {
                     name,
                     shortName,
@@ -387,6 +390,7 @@ export class Visual implements IVisual {
                     omega:      getNum(row, COL.periArgument),
                     magnitude:  getNum(row, COL.magnitude),
                     orbitClass: getStr(row, COL.orbitClass),
+                    firstSeenDay: isNaN(obsMs) ? NaN : (obsMs - this.J2000_MS) / 86400000,
                     approaches: [],
                 });
             }
@@ -499,19 +503,30 @@ export class Visual implements IVisual {
     }
 
     // -----------------------------------------------------------------------
-    // Orbit-line fade: an asteroid's orbit is fully visible at the moment of a
-    // close approach, then fades to nothing over `trailDays`. Returns the fade
-    // strength (0..1) and the orbiting body of the approach driving it.
+    // Orbit-line trail: the line is drawn from when the asteroid was first observed
+    // up to the close approach, ramping from faint (just discovered) to full (at the
+    // approach), then fading out over `trailDays`. If no observation date is known,
+    // it falls back to a `trailDays` lead-up before the approach.
     private orbitFadeInfo(asteroid: AsteroidOrbit): { fade: number; body: string } {
         let best = 0;
         let body = "";
+        const now  = this.daysSinceJ2000;
+        const seen = asteroid.firstSeenDay;
         for (const ap of asteroid.approaches) {
             if (isNaN(ap.dayJ2000)) continue;
-            const age = this.daysSinceJ2000 - ap.dayJ2000;
-            if (age >= 0 && age <= this.trailDays) {
-                const f = 1 - age / this.trailDays;
-                if (f > best) { best = f; body = ap.orbitingBody; }
+            const approachDay = ap.dayJ2000;
+            const startDay = (!isNaN(seen) && seen < approachDay) ? seen : approachDay - this.trailDays;
+
+            let f = 0;
+            if (now >= startDay && now <= approachDay) {
+                // lead-up: faint at first sighting, full at the approach
+                const span = approachDay - startDay;
+                f = span > 0 ? 0.15 + 0.85 * ((now - startDay) / span) : 1;
+            } else if (now > approachDay && now <= approachDay + this.trailDays) {
+                // fade out after the approach has passed
+                f = 1 - (now - approachDay) / this.trailDays;
             }
+            if (f > best) { best = f; body = ap.orbitingBody; }
         }
         return { fade: best, body };
     }
