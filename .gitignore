@@ -1,8 +1,6 @@
-# Generated data — large, regenerate with flatten_asteroids.py
-asteroids_flat.csv
-
-# Raw source data — not committed (add your own NASA export)
-asteroids_data.csv
+# Data files are committed to the repo (both under 50 MB)
+# asteroids_data.csv  — raw NASA CNEOS source
+# asteroids_flat.csv  — flattened output (one row per close approach)
 
 # Node
 node_modules/
