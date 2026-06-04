@@ -1,106 +1,90 @@
-# NASA Asteroids — Orbital Map Power BI Custom Visual
+# NASA Close Approach Asteroids — Power BI Custom Visuals
 
-An animated 2D solar system Power BI custom visual built from [NASA CNEOS close-approach data](https://cneos.jpl.nasa.gov/ca/). Every asteroid gets its real elliptical orbit drawn from Keplerian elements, planets animate at correct relative speeds, and hazardous objects pulse red.
+Two animated solar-system Power BI custom visuals — **2D** and **3D** — built from
+[NASA CNEOS close-approach data](https://cneos.jpl.nasa.gov/ca/). Planets orbit the Sun
+on real Keplerian elements, and near-Earth asteroids appear when first observed, brighten
+toward each close approach, and fade out at last observation — all driven by a scrubbable
+1930–2026 timeline.
 
-![Visual preview — animated solar system with asteroid orbits](assets/preview_placeholder.png)
+## The two visuals
 
-## Features
+| | 2D (`asteroid-orbital-visual`) | 3D (`asteroid-orbital-3d`) |
+|---|---|---|
+| Engine | D3.js (SVG) | Three.js (WebGL) |
+| Orbits | Top-down, log radial scale | True 3D using `inclination` + `ascending_node_longitude` |
+| Camera | Zoom / pan (scroll, drag, dbl-click reset) | Orbit / zoom (drag, scroll, dbl-click reset) |
+| Packaged file | `release/asteroid-orbital-map-1.0.0.pbiviz` | `release/asteroid-orbital-map-3d-1.0.0.pbiviz` |
 
-- **All 8 planets** orbiting the Sun using real semi-major axes and eccentricities
-- **Asteroid orbits** drawn from `semi_major_axis`, `eccentricity`, and `perihelion_argument`
-- **Hazardous asteroids** highlighted in red with a glow + pulse effect
-- **Hover tooltips** showing orbit class, diameter, closest Earth approach date, miss distance, and velocity
-- **Formatting pane** controls: animation speed, inner-only vs. all planets, hazard filter
-- Power BI slicer-compatible — filter by asteroid, date, hazard status from the report canvas
+## Shared features
 
-## Data Source
+- **All 8 planets** as bright, distinct, glowing bodies on real orbits, with name labels
+- **Observation lifecycle** — each asteroid appears at `first_observation_date`, its orbit
+  line ramps up to the close approach and winds down, then everything disappears at
+  `last_observation_date`
+- **Close-approach emphasis** — 2D brightens/enlarges; 3D blinks fast at the approach point
+- **Playback bar** — ⏮ ⏪ ⏸ ⏩ ⏭ plus a timeline scrubber and live date readout, fixed to
+  1930–2026, always starting from the beginning
+- **Logarithmic radial scale** so inner planets (Mercury–Mars) stay readable alongside Neptune
+- **Format pane**: Show All 8 Planets, Animation Speed, Orbit Line Density, Orbit Trail Days
+  (2D), Hazardous Asteroids Only
+- Hover tooltips with orbit class, diameter, closest approach date, miss distance, velocity
 
-Raw data: NASA Near Earth Object Web Service (NeoWs) / CNEOS  
-File: `asteroids_data.csv` (not committed — add your own export)
-
-The `close_approach_data` column is a nested Python-dict string. Run the prep script to flatten it before loading into Power BI.
-
-## Quick Start
-
-### 1. Flatten the data
-```bash
-python flatten_asteroids.py
-# → produces asteroids_flat.csv (import this into Power BI)
-```
-
-### 2. Or use the Jupyter notebook (automated)
-```bash
-jupyter notebook setup_and_run.ipynb
-```
-The notebook handles flattening, Node verification, pbiviz install, certificate trust, and dev server launch in sequence.
-
-### 3. Quickest path — import the prebuilt visual
-No build needed. The packaged visual is published in [`release/`](release/):
-
-1. Power BI Desktop → Visualizations pane → **`...` → Import a visual from a file**
-2. Select [`release/asteroid-orbital-map-1.0.0.pbiviz`](release/asteroid-orbital-map-1.0.0.pbiviz)
-3. Load the data via **Home → Get data → Web** and paste:
-   `https://raw.githubusercontent.com/jdstigma/nasa-asteroids/main/asteroids_flat.csv`
-   (or paste [`powerquery_web_connection.m`](powerquery_web_connection.m) into the Advanced Editor for typed columns)
-4. Drag the fields into the visual's **Data Fields** bucket and set numeric fields to **Don't summarize**
-
-### 4. Build from source instead
-```bash
-# Install Node.js LTS from https://nodejs.org first, then:
-npm install -g powerbi-visuals-tools
-cd asteroid-orbital-visual
-npm install
-pbiviz install-cert    # then trust the generated cert
-pbiviz package         # → dist/*.pbiviz
-```
-
-### 4. Map these fields in Power BI
-
-| Column | Role |
-|---|---|
-| `name` | Asteroid identity |
-| `potentially_hazardous` | Color (red = hazardous) |
-| `diameter_max_m` | Dot size |
-| `semi_major_axis` | Orbit radius |
-| `eccentricity` | Orbit shape |
-| `perihelion_argument` | Orbit orientation |
-| `miss_distance_au` | Closest approach (tooltip) |
-| `close_approach_date` | Date (tooltip) |
-| `velocity_km_s` | Speed (tooltip) |
-| `orbit_class_type` | Class label (tooltip) |
-
-### 5. Package for distribution
-```bash
-cd asteroid-orbital-visual
-pbiviz package
-# → dist/asteroid-orbital-visual.pbiviz
-```
-
-## Project Structure
+## Repository layout
 
 ```
 nasa asteroids/
-├── asteroids_data.csv            # Raw NASA source (not committed)
-├── asteroids_flat.csv            # Flattened output (generated)
-├── flatten_asteroids.py          # Data prep script
-├── setup_and_run.ipynb           # Automated setup notebook
-└── asteroid-orbital-visual/
-    ├── pbiviz.json               # Visual metadata
-    ├── capabilities.json         # Power BI data roles
-    ├── package.json
-    ├── tsconfig.json
-    ├── src/
-    │   ├── visual.ts             # D3 orbital animation (main)
-    │   └── settings.ts           # Formatting pane
-    └── style/
-        └── visual.less           # Dark space theme
+├── asteroids_data.csv          # Raw NASA CNEOS export (nested close_approach_data)
+├── asteroids_flat.csv          # Flattened — one row per close approach (import this)
+├── flatten_asteroids.py        # Parses the nested data into the flat CSV
+├── setup_and_run.ipynb         # Automated setup notebook (fetches from GitHub, builds, launches)
+├── powerquery_web_connection.m # Power Query M to load the flat CSV from GitHub with typed columns
+├── make_icon.py / make_icon_3d.py
+├── asteroid-orbital-visual/    # 2D visual source (D3)
+├── asteroid-orbital-3d/        # 3D visual source (Three.js)
+├── release/                    # Prebuilt .pbiviz files — import these directly
+└── reports/                    # Published Power BI report (.pbix, via Git LFS)
 ```
 
-## Tech Stack
+## Quick start
 
-- [Power BI Visuals SDK](https://github.com/microsoft/PowerBI-visuals-tools) v5
-- [D3.js](https://d3js.org) v7
-- TypeScript
+### Option A — import a prebuilt visual (no build)
+1. Power BI Desktop → Visualizations pane → **`...` → Import a visual from a file**
+2. Pick `release/asteroid-orbital-map-1.0.0.pbiviz` (2D) or `release/asteroid-orbital-map-3d-1.0.0.pbiviz` (3D)
+3. Load the data via **Home → Get data → Web** and paste:
+   `https://raw.githubusercontent.com/jdstigma/nasa-asteroids/main/asteroids_flat.csv`
+   *(or paste `powerquery_web_connection.m` into the Advanced Editor for typed columns)*
+4. Map the fields (below) and set numeric/date fields to **Don't summarize**
+
+### Option B — build from source
+```bash
+# Install Node.js LTS, then:
+npm install -g powerbi-visuals-tools
+cd asteroid-orbital-visual    # or asteroid-orbital-3d
+npm install
+pbiviz package                # → dist/*.pbiviz
+```
+
+## Field mapping
+
+Drag these into the visual's **Data Fields** bucket. Set every numeric and date field to
+**Don't summarize**.
+
+| Field | Used for |
+|---|---|
+| `name`, `short_name` | Asteroid identity |
+| `potentially_hazardous` | Red / hazardous styling |
+| `diameter_max_m` | Dot size |
+| `semi_major_axis`, `eccentricity`, `perihelion_argument` | Orbit shape |
+| `inclination`, `ascending_node_longitude` | 3D orbital tilt (**3D visual only**) |
+| `first_observation_date`, `last_observation_date` | Appearance/disappearance lifecycle |
+| `close_approach_date` | Timeline trigger |
+| `miss_distance_au`, `velocity_km_s`, `orbiting_body`, `magnitude`, `orbit_class_type` | Tooltips |
+
+## Data source
+
+NASA Near Earth Object Web Service (NeoWs) / CNEOS. The raw `close_approach_data` column is
+a nested Python-dict string; `flatten_asteroids.py` expands it into one row per close-approach
+event. The `.pbix` report under `reports/` is stored via **Git LFS**.
 
 ## License
 
