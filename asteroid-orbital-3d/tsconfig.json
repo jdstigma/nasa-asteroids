@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "allowSyntheticDefaultImports": true,
+    "declaration": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "lib": ["es6", "dom"],
+    "moduleResolution": "Node",
+    "outDir": "./.tmp/build/",
+    "sourceMap": true,
+    "target": "ES6",
+    "useUnknownInCatchVariables": false
+  },
+  "files": ["src/visual.ts"],
+  "exclude": ["node_modules", ".tmp"]
+}

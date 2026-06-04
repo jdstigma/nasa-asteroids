@@ -1,0 +1,19 @@
+{
+  "visual": {
+    "name": "asteroidOrbital3D",
+    "displayName": "Asteroid Orbital Map 3D",
+    "guid": "asteroidOrbital3DA1B2C3D4E5F60718",
+    "visualClassName": "Visual",
+    "version": "1.0.0.0",
+    "description": "Interactive 3D solar system showing near-Earth asteroid close approaches from NASA CNEOS data",
+    "supportUrl": "https://github.com/jdstigma/nasa-asteroids",
+    "gitHubUrl": "https://github.com/jdstigma/nasa-asteroids"
+  },
+  "apiVersion": "5.3.0",
+  "author": { "name": "jdstigma", "email": "placeholder@example.com" },
+  "assets": { "icon": "assets/icon.png" },
+  "externalJS": [],
+  "style": "style/visual.less",
+  "capabilities": "capabilities.json",
+  "stringResources": []
+}

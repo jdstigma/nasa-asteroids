@@ -1,0 +1,33 @@
+{
+  "dataRoles": [
+    {
+      "name": "tableData",
+      "kind": "GroupingOrMeasure",
+      "displayName": "Data Fields",
+      "description": "Map fields from your flattened asteroid close-approach table here"
+    }
+  ],
+  "dataViewMappings": [
+    {
+      "table": {
+        "rows": {
+          "for": { "in": "tableData" },
+          "dataReductionAlgorithm": { "window": { "count": 30000 } }
+        }
+      }
+    }
+  ],
+  "objects": {
+    "display": {
+      "displayName": "Display",
+      "properties": {
+        "showAllPlanets":    { "displayName": "Show All 8 Planets",        "type": { "bool": true } },
+        "animationSpeed":    { "displayName": "Animation Speed",            "type": { "numeric": true } },
+        "lineThreshold":     { "displayName": "Orbit Line Density",         "type": { "numeric": true } },
+        "showHazardousOnly": { "displayName": "Hazardous Asteroids Only",   "type": { "bool": true } }
+      }
+    }
+  },
+  "suppressDefaultTitle": true,
+  "privileges": []
+}
