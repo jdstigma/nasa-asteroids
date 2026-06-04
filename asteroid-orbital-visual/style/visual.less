@@ -1,0 +1,35 @@
+.orbital-container {
+    width:  100%;
+    height: 100%;
+    background: #050510;
+    box-sizing: border-box;
+    position: relative;
+}
+
+.orbital-svg {
+    display: block;
+}
+
+.info-box {
+    pointer-events: none;
+    user-select: none;
+}
+
+.legend {
+    user-select: none;
+}
+
+.asteroid-tooltip {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
+}
+
+/* Pulsing animation for hazardous asteroid dots */
+@keyframes hazardPulse {
+    0%   { opacity: 1.0; }
+    50%  { opacity: 0.5; }
+    100% { opacity: 1.0; }
+}
+
+circle.asteroid-dot[filter] {
+    animation: hazardPulse 1.8s ease-in-out infinite;
+}

@@ -1,0 +1,32 @@
+# Generated data — large, regenerate with flatten_asteroids.py
+asteroids_flat.csv
+
+# Raw source data — not committed (add your own NASA export)
+asteroids_data.csv
+
+# Node
+node_modules/
+.tmp/
+dist/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+
+# Power BI package output (regenerate with: pbiviz package)
+*.pbiviz
+
+# Power BI Desktop files (binary, often large)
+*.pbix
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp

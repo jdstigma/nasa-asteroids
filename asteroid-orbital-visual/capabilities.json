@@ -1,0 +1,51 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/core-build/capabilities.schema.json",
+  "dataRoles": [
+    {
+      "name": "tableData",
+      "kind": "GroupingOrMeasure",
+      "displayName": "Data Fields",
+      "description": "Map fields from your flattened asteroid close-approach table here"
+    }
+  ],
+  "dataViewMappings": [
+    {
+      "table": {
+        "rows": {
+          "for": { "in": "tableData" },
+          "dataReductionAlgorithm": { "window": { "count": 30000 } }
+        }
+      }
+    }
+  ],
+  "tooltips": {
+    "supportedTypes": { "default": true, "canvas": true },
+    "roles": ["tooltips"]
+  },
+  "objects": {
+    "display": {
+      "displayName": "Display",
+      "properties": {
+        "showAllPlanets": {
+          "displayName": "Show All 8 Planets",
+          "type": { "bool": true }
+        },
+        "animationSpeed": {
+          "displayName": "Animation Speed",
+          "type": { "numeric": true }
+        },
+        "showHazardousOnly": {
+          "displayName": "Hazardous Asteroids Only",
+          "type": { "bool": true }
+        },
+        "darkMode": {
+          "displayName": "Dark Background",
+          "type": { "bool": true }
+        }
+      }
+    }
+  },
+  "supportsHighlight": false,
+  "supportsKPIShowInFocusMode": false,
+  "suppressDefaultTitle": true
+}
