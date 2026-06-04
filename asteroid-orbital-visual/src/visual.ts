@@ -2,6 +2,8 @@
 
 import powerbi from "powerbi-visuals-api";
 import * as d3 from "d3";
+import { FormattingSettingsService } from "powerbi-visuals-utils-formattingmodel";
+import { VisualSettings } from "./settings";
 
 import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
 import VisualUpdateOptions    = powerbi.extensibility.visual.VisualUpdateOptions;
@@ -115,6 +117,8 @@ function planetTrueAnomaly(planet: PlanetDef, daysSinceJ2000: number): number {
 // ---------------------------------------------------------------------------
 export class Visual implements IVisual {
     private host:       powerbi.extensibility.visual.IVisualHost;
+    private formattingSettingsService: FormattingSettingsService;
+    private formattingSettings: VisualSettings;
     private container:  d3.Selection<HTMLDivElement, unknown, null, undefined>;
     private svg:        d3.Selection<SVGSVGElement, unknown, null, undefined>;
     private zoomLayer:     d3.Selection<SVGGElement, unknown, null, undefined>;
@@ -161,6 +165,8 @@ export class Visual implements IVisual {
 
     constructor(options: VisualConstructorOptions) {
         this.host = options.host;
+        this.formattingSettingsService = new FormattingSettingsService();
+        this.formattingSettings = new VisualSettings();
 
         this.container = d3.select(options.element)
             .append("div")
@@ -318,16 +324,17 @@ export class Visual implements IVisual {
                 .text("Drag asteroid fields into the Data Fields bucket to plot orbits");
         }
 
-        // Read formatting settings
+        // Read formatting settings via the formatting model service (drives the Format pane UI)
         if (options.dataViews && options.dataViews[0]) {
-            const objs = options.dataViews[0].metadata?.objects;
-            if (objs) {
-                this.showAllPlanets    = (objs["display"]?.["showAllPlanets"]    as boolean) ?? true;
-                this.showHazardousOnly = (objs["display"]?.["showHazardousOnly"] as boolean) ?? false;
-                this.animSpeed         = (objs["display"]?.["animationSpeed"]    as number)  ?? 1;
-                this.trailDays         = (objs["display"]?.["trailDays"]         as number)  ?? 730;
-                this.lineThreshold     = (objs["display"]?.["lineThreshold"]     as number)  ?? 0.55;
-            }
+            this.formattingSettings = this.formattingSettingsService.populateFormattingSettingsModel(
+                VisualSettings, options.dataViews[0]);
+            const d = this.formattingSettings.display;
+            this.showAllPlanets    = d.showAllPlanets.value;
+            this.showHazardousOnly = d.showHazardousOnly.value;
+            this.animSpeed         = d.animationSpeed.value;
+            this.trailDays         = d.trailDays.value;
+            this.lineThreshold     = d.lineThreshold.value;
+
             this.parseData(options.dataViews[0]);
         }
 
@@ -543,6 +550,14 @@ export class Visual implements IVisual {
         return { fade: best, body };
     }
 
+    // True only while the sim clock is inside the asteroid's observation window
+    // (first observation → last observation). Drives when the dot AND orbit show.
+    private inObsWindow(a: AsteroidOrbit): boolean {
+        const now = this.daysSinceJ2000;
+        return (isNaN(a.firstSeenDay) || now >= a.firstSeenDay) &&
+               (isNaN(a.lastSeenDay)  || now <= a.lastSeenDay);
+    }
+
     // Current on-screen position of an asteroid along its orbit
     private asteroidPos(a: AsteroidOrbit): [number, number] {
         const period = 365.25 * Math.pow(a.a, 1.5);
@@ -562,8 +577,10 @@ export class Visual implements IVisual {
         ).filter(a => a.a > 0 && a.a <= MAX_AU);
 
         // Only draw orbit lines near their peak (fade above the threshold) so the
-        // view stays sparse and individual orbits are readable.
+        // view stays sparse — and only while the asteroid is within its observation
+        // window, so the orbit disappears together with its dot.
         const active = visibleAsteroids
+            .filter(a => this.inObsWindow(a))
             .map(a => { const info = this.orbitFadeInfo(a); return { ast: a, fade: info.fade, body: info.body }; })
             .filter(d => d.fade >= this.lineThreshold);
 
@@ -730,15 +747,9 @@ export class Visual implements IVisual {
 
         // A dot is shown only within the asteroid's observation window: it appears at
         // the first observation date and disappears at the last observation date.
-        // (Missing dates are treated as open-ended so the dot still shows.)
-        const now = this.daysSinceJ2000;
-        const inObsWindow = (a: AsteroidOrbit): boolean =>
-            (isNaN(a.firstSeenDay) || now >= a.firstSeenDay) &&
-            (isNaN(a.lastSeenDay)  || now <= a.lastSeenDay);
-
         // Fade still brightens the dot near a close approach within that window.
         const dotData = visibleAsteroids
-            .filter(inObsWindow)
+            .filter(a => this.inObsWindow(a))
             .map(a => ({ ast: a, fade: this.orbitFadeInfo(a).fade }));
         const activeDots = dotData.filter(d => d.fade > 0.01);
 
@@ -855,6 +866,12 @@ export class Visual implements IVisual {
 
     private hideTooltip(): void {
         this.tooltip?.style("display", "none");
+    }
+
+    // -----------------------------------------------------------------------
+    // Builds the Format pane UI from settings.ts
+    public getFormattingModel(): powerbi.visuals.FormattingModel {
+        return this.formattingSettingsService.buildFormattingModel(this.formattingSettings);
     }
 
     // -----------------------------------------------------------------------
