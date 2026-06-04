@@ -176,10 +176,11 @@ export class Visual implements IVisual {
             new THREE.MeshBasicMaterial({ color: 0xffe066 })
         );
         this.scene.add(sun);
-        this.addGlowSprite(sun, 0xffdd66, 34);
-        const sunGlow = new THREE.PointLight(0xffffff, 2.2, 0, 0.0);
-        this.scene.add(sunGlow);
-        this.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+        this.addGlowSprite(sun, 0xffdd66, 30);   // inner glow
+        this.addGlowSprite(sun, 0xffaa33, 70);   // outer corona
+        const sunLight = new THREE.PointLight(0xffffff, 2.6, 0, 0.0);
+        this.scene.add(sunLight);
+        this.scene.add(new THREE.AmbientLight(0x6677aa, 0.45));
 
         // Starfield
         const starGeo = new THREE.BufferGeometry();
@@ -195,13 +196,32 @@ export class Visual implements IVisual {
         const planets = this.showAllPlanets ? PLANETS : PLANETS.slice(0, 4);
         for (const p of planets) this.addPlanet(p);
 
-        // Asteroid points (positions/colors updated per frame)
+        // Asteroid points — custom shader so each point can be sized by diameter
         this.asteroidGeom = new THREE.BufferGeometry();
         this.asteroidGeom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(3), 3));
-        this.asteroidGeom.setAttribute("color", new THREE.BufferAttribute(new Float32Array(3), 3));
-        const aMat = new THREE.PointsMaterial({
-            size: 3, vertexColors: true, sizeAttenuation: true, transparent: true,
-            map: this.glowTexture, alphaTest: 0.02, depthWrite: false,
+        this.asteroidGeom.setAttribute("acolor",   new THREE.BufferAttribute(new Float32Array(3), 3));
+        this.asteroidGeom.setAttribute("size",     new THREE.BufferAttribute(new Float32Array(1), 1));
+        const aMat = new THREE.ShaderMaterial({
+            uniforms: { map: { value: this.glowTexture } },
+            vertexShader: `
+                attribute float size;
+                attribute vec3 acolor;
+                varying vec3 vColor;
+                void main() {
+                    vColor = acolor;
+                    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+                    gl_PointSize = size * (240.0 / -mv.z);
+                    gl_Position = projectionMatrix * mv;
+                }`,
+            fragmentShader: `
+                uniform sampler2D map;
+                varying vec3 vColor;
+                void main() {
+                    vec4 t = texture2D(map, gl_PointCoord);
+                    if (t.a < 0.05) discard;
+                    gl_FragColor = vec4(vColor, t.a);
+                }`,
+            transparent: true, depthWrite: false, blending: THREE.NormalBlending,
         });
         this.asteroidPoints = new THREE.Points(this.asteroidGeom, aMat);
         this.scene.add(this.asteroidPoints);
@@ -209,8 +229,12 @@ export class Visual implements IVisual {
 
     private addPlanet(p: PlanetDef): void {
         const mesh = new THREE.Mesh(
-            new THREE.SphereGeometry(p.radius, 24, 24),
-            new THREE.MeshBasicMaterial({ color: p.color })
+            new THREE.SphereGeometry(p.radius, 32, 32),
+            new THREE.MeshStandardMaterial({
+                color: p.color,
+                emissive: p.color, emissiveIntensity: 0.25,
+                roughness: 0.75, metalness: 0.1,
+            })
         );
         (mesh as any).userData = p;
         this.addGlowSprite(mesh, p.color, p.radius * 5);
@@ -324,7 +348,8 @@ export class Visual implements IVisual {
         // resize asteroid buffers
         const n = Math.max(1, this.asteroids.length);
         this.asteroidGeom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(n * 3), 3));
-        this.asteroidGeom.setAttribute("color", new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+        this.asteroidGeom.setAttribute("acolor",   new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+        this.asteroidGeom.setAttribute("size",     new THREE.BufferAttribute(new Float32Array(n), 1));
     }
 
     // -----------------------------------------------------------------------
@@ -368,8 +393,9 @@ export class Visual implements IVisual {
         }
 
         // Asteroid points (only within observation window)
-        const pos = this.asteroidGeom.getAttribute("position") as THREE.BufferAttribute;
-        const col = this.asteroidGeom.getAttribute("color") as THREE.BufferAttribute;
+        const pos  = this.asteroidGeom.getAttribute("position") as THREE.BufferAttribute;
+        const col  = this.asteroidGeom.getAttribute("acolor") as THREE.BufferAttribute;
+        const size = this.asteroidGeom.getAttribute("size") as THREE.BufferAttribute;
         const list = this.showHazardousOnly ? this.asteroids.filter(a => a.hazardous) : this.asteroids;
         let n = 0;
         const activeForLines: { a: Asteroid; fade: number }[] = [];
@@ -381,11 +407,15 @@ export class Visual implements IVisual {
             const b = 0.4 + 0.6 * fade;
             if (a.hazardous) col.setXYZ(n, 1.0, 0.35 * b, 0.3 * b);
             else             col.setXYZ(n, 0.8 * b, 0.82 * b, 0.9 * b);
+            // size by estimated diameter, gently scaled, larger near approach
+            const base = a.hazardous ? 6 : 4;
+            const dscale = a.diameterM ? Math.min(10, base + Math.log10(a.diameterM + 1) * 2.2) : base;
+            size.setX(n, dscale * (0.6 + 0.4 * fade));
             n++;
             if (fade >= this.lineThreshold) activeForLines.push({ a, fade });
         }
         this.asteroidGeom.setDrawRange(0, n);
-        pos.needsUpdate = true; col.needsUpdate = true;
+        pos.needsUpdate = true; col.needsUpdate = true; size.needsUpdate = true;
 
         this.updateOrbitLines(activeForLines);
     }
