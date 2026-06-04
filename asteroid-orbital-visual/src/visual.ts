@@ -583,30 +583,6 @@ export class Visual implements IVisual {
             .attr("stroke-opacity", d => (d.ast.hazardous ? 0.85 : 0.5) * d.fade);
 
         sel.exit().remove();
-
-        // --- Data labels (name + orbiting body) for the active asteroids ---
-        const labels = this.labelLayer.selectAll<SVGTextElement, { ast: AsteroidOrbit; fade: number; body: string }>("text.asteroid-label")
-            .data(active, d => d.ast.name);
-
-        labels.enter()
-            .append("text")
-            .classed("asteroid-label", true)
-            .attr("font-family", "sans-serif")
-            .attr("font-size", "9px")
-            .attr("fill", "#e3e9f7")
-            .attr("stroke", "#050510")
-            .attr("stroke-width", 0.4)
-            .attr("paint-order", "stroke")
-            .attr("pointer-events", "none")
-            .merge(labels)
-            .each(function(d) {
-                const [px, py] = self.asteroidPos(d.ast);
-                d3.select(this).attr("x", px + 6).attr("y", py - 6);
-            })
-            .attr("opacity", d => Math.min(1, d.fade * 1.3))
-            .text(d => d.body ? `${d.ast.name}  ·  ${d.body}` : d.ast.name);
-
-        labels.exit().remove();
     }
 
     // -----------------------------------------------------------------------
