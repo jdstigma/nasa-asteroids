@@ -20,8 +20,10 @@ __pycache__/
 # webpack analyzer reports
 webpack.statistics.*.html
 
-# Power BI Desktop files (binary, often large)
+# Power BI Desktop files (binary) — ignored everywhere except the published
+# report(s) under reports/, which are committed via Git LFS (see .gitattributes)
 *.pbix
+!reports/*.pbix
 
 # OS
 .DS_Store
