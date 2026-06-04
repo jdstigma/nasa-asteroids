@@ -143,6 +143,7 @@ export class Visual implements IVisual {
     private showHazardousOnly: boolean = false;
     private showAllPlanets: boolean    = true;
     private trailDays: number          = 730; // how long an orbit line stays visible after an approach, then fades
+    private lineThreshold: number      = 0.55; // only draw an orbit line when its fade exceeds this (sparser view)
     private initialZoomApplied: boolean = false;
 
     // Playback state
@@ -325,6 +326,7 @@ export class Visual implements IVisual {
                 this.showHazardousOnly = (objs["display"]?.["showHazardousOnly"] as boolean) ?? false;
                 this.animSpeed         = (objs["display"]?.["animationSpeed"]    as number)  ?? 1;
                 this.trailDays         = (objs["display"]?.["trailDays"]         as number)  ?? 730;
+                this.lineThreshold     = (objs["display"]?.["lineThreshold"]     as number)  ?? 0.55;
             }
             this.parseData(options.dataViews[0]);
         }
@@ -559,10 +561,11 @@ export class Visual implements IVisual {
             : this.asteroids
         ).filter(a => a.a > 0 && a.a <= MAX_AU);
 
-        // Compute fade for each and keep only the ones currently visible
+        // Only draw orbit lines near their peak (fade above the threshold) so the
+        // view stays sparse and individual orbits are readable.
         const active = visibleAsteroids
             .map(a => { const info = this.orbitFadeInfo(a); return { ast: a, fade: info.fade, body: info.body }; })
-            .filter(d => d.fade > 0.01);
+            .filter(d => d.fade >= this.lineThreshold);
 
         const self = this;
 
@@ -748,6 +751,9 @@ export class Visual implements IVisual {
             .append("circle")
             .classed("asteroid-dot", true)
             .attr("fill", d => d.ast.hazardous ? "#ff6666" : "#cccccc")
+            .attr("stroke", d => d.ast.hazardous ? "#ffd0d0" : "#ffffff")
+            .attr("stroke-width", 0.8)
+            .attr("stroke-opacity", 0.9)
             .attr("filter", d => d.ast.hazardous ? "url(#pulse)" : "none")
             .attr("cursor", "pointer")
             .on("mouseover", function(event, d) {

@@ -27,6 +27,14 @@ class DisplayCard extends FormattingSettingsCard {
                        maxValue: { value: 18250, type: powerbi.visuals.ValidatorType.Max } },
     });
 
+    lineThreshold = new formattingSettings.NumUpDown({
+        name:        "lineThreshold",
+        displayName: "Orbit Line Density (0 = many, 1 = few)",
+        value:       0.55,
+        options:     { minValue: { value: 0, type: powerbi.visuals.ValidatorType.Min },
+                       maxValue: { value: 1, type: powerbi.visuals.ValidatorType.Max } },
+    });
+
     showHazardousOnly = new formattingSettings.ToggleSwitch({
         name:        "showHazardousOnly",
         displayName: "Hazardous Asteroids Only",
@@ -35,7 +43,7 @@ class DisplayCard extends FormattingSettingsCard {
 
     name:  string = "display";
     displayName: string = "Display Options";
-    slices = [this.showAllPlanets, this.animationSpeed, this.trailDays, this.showHazardousOnly];
+    slices = [this.showAllPlanets, this.animationSpeed, this.trailDays, this.lineThreshold, this.showHazardousOnly];
 }
 
 export class VisualSettings extends FormattingSettingsModel {

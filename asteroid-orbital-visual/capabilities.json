@@ -33,6 +33,10 @@
           "displayName": "Orbit Trail Days",
           "type": { "numeric": true }
         },
+        "lineThreshold": {
+          "displayName": "Orbit Line Density (0-1)",
+          "type": { "numeric": true }
+        },
         "showHazardousOnly": {
           "displayName": "Hazardous Asteroids Only",
           "type": { "bool": true }
