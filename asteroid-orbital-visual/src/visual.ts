@@ -106,21 +106,6 @@ function planetTrueAnomaly(planet: PlanetDef, daysSinceJ2000: number): number {
     return meanToTrueAnomaly(Mn, planet.e) / DEG;
 }
 
-// Build ellipse path for SVG (orbit ring), accounting for eccentricity
-function ellipsePath(a: number, e: number, omegaDeg: number, scale: number, cx: number, cy: number): string {
-    const b  = a * Math.sqrt(1 - e * e);
-    const fd = a * e;   // focus offset
-    const pts: [number, number][] = [];
-    const steps = 180;
-    for (let i = 0; i <= steps; i++) {
-        const nu = (i / steps) * 2 * Math.PI;
-        const r  = (a * (1 - e * e)) / (1 + e * Math.cos(nu));
-        const th = nu + omegaDeg * DEG;
-        pts.push([cx + r * Math.cos(th) * scale, cy - r * Math.sin(th) * scale]);
-    }
-    return "M " + pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" L ") + " Z";
-}
-
 // ---------------------------------------------------------------------------
 // Visual class
 // ---------------------------------------------------------------------------
@@ -141,6 +126,8 @@ export class Visual implements IVisual {
     private scale:  number = 1;
     private cx:     number = 400;
     private cy:     number = 400;
+    private maxRpx: number = 360;          // pixel radius the outermost orbit maps to
+    private readonly R_MIN_AU = 0.3;       // inner clamp (just inside Mercury) for the log scale
 
     private asteroids: AsteroidOrbit[] = [];
     private animFrame: number | null   = null;
@@ -149,7 +136,6 @@ export class Visual implements IVisual {
     private showHazardousOnly: boolean = false;
     private showAllPlanets: boolean    = true;
     private trailDays: number          = 730; // how long an orbit line stays visible after an approach, then fades
-    private fitAU: number              = 4;   // AU radius the initial view is fitted to (derived from data)
     private initialZoomApplied: boolean = false;
 
     // Simulation clock bounds (days since J2000). The animation loops between these
@@ -268,13 +254,8 @@ export class Visual implements IVisual {
             });
         this.svg.call(this.zoomBehavior);
         this.svg.on("dblclick.zoom", () => {
-            const k = Math.max(0.4, Math.min(MAX_AU / this.fitAU, 40));
-            const t = d3.zoomIdentity
-                .translate(this.cx, this.cy)
-                .scale(k)
-                .translate(-this.cx, -this.cy);
             this.svg.transition().duration(400)
-                .call(this.zoomBehavior.transform, t);
+                .call(this.zoomBehavior.transform, d3.zoomIdentity);
         });
 
         // Start current sim time roughly at today
@@ -299,6 +280,7 @@ export class Visual implements IVisual {
         this.cx = this.width  / 2;
         this.cy = this.height / 2;
         this.scale = Math.min(this.width, this.height) / 2 / MAX_AU;
+        this.maxRpx = Math.min(this.width, this.height) / 2 * 0.9;  // leave a small margin
 
         // Reposition the sun
         this.svg.select(".sun")
@@ -337,15 +319,10 @@ export class Visual implements IVisual {
         // Asteroid orbit lines are no longer drawn statically — they appear at each
         // close approach and fade out, handled per-frame in updateMovingBodies().
 
-        // Auto-fit the initial view to the data (once), centered on the Sun.
-        // Scrolling/panning afterwards is preserved; double-click resets to this fit.
+        // With the log scale every orbit already fits the frame, so the default
+        // (identity) view is the fit. Reset zoom once after (re)loading data.
         if (!this.initialZoomApplied && this.zoomBehavior && this.width > 0) {
-            const k = Math.max(0.4, Math.min(MAX_AU / this.fitAU, 40));
-            const t = d3.zoomIdentity
-                .translate(this.cx, this.cy)
-                .scale(k)
-                .translate(-this.cx, -this.cy);
-            this.svg.call(this.zoomBehavior.transform, t);
+            this.svg.call(this.zoomBehavior.transform, d3.zoomIdentity);
             this.initialZoomApplied = true;
         }
     }
@@ -439,19 +416,41 @@ export class Visual implements IVisual {
             this.daysSinceJ2000 = this.simMinDays;
         }
 
-        // Auto-fit radius: frame the bulk of the asteroids by using the 90th-percentile
-        // aphelion distance (a*(1+e)), clamped to a sensible range. Outliers (long-period
-        // objects) are excluded so the inner system isn't squashed.
-        const aphelia = this.asteroids
-            .map(a => a.a * (1 + a.e))
-            .filter(v => v > 0 && v <= MAX_AU)
-            .sort((x, y) => x - y);
-        if (aphelia.length > 0) {
-            const p90 = aphelia[Math.floor(aphelia.length * 0.9)];
-            this.fitAU = Math.max(2.5, Math.min(p90 * 1.15, 12));
-        }
-        // Re-fit on the next update now that the data (and viewport) are known
+        // Reset zoom to the default (log scale already frames everything) on reload
         this.initialZoomApplied = false;
+    }
+
+    // -----------------------------------------------------------------------
+    // Logarithmic radial scale: maps an AU distance to a pixel radius so that the
+    // inner planets (0.4–1.5 AU) are spread out and the outer ones (5–30 AU) are
+    // compressed — every orbit reads as a distinct nested ring without zooming.
+    private auToPx(rAU: number): number {
+        const r = Math.max(this.R_MIN_AU, Math.min(rAU, MAX_AU));
+        const norm = (Math.log(r) - Math.log(this.R_MIN_AU)) /
+                     (Math.log(MAX_AU) - Math.log(this.R_MIN_AU));
+        return norm * this.maxRpx;
+    }
+
+    // Project a heliocentric (x, y) in AU to screen pixels using the log scale
+    private project(xAU: number, yAU: number): [number, number] {
+        const rAU = Math.hypot(xAU, yAU);
+        if (rAU === 0) return [this.cx, this.cy];
+        const rpx = this.auToPx(rAU);
+        return [this.cx + (xAU / rAU) * rpx, this.cy - (yAU / rAU) * rpx];
+    }
+
+    // Build an SVG path for an orbit, sampling points and projecting through the log scale
+    private orbitPath(a: number, e: number, omegaDeg: number): string {
+        const steps = 180;
+        const pts: string[] = [];
+        for (let i = 0; i <= steps; i++) {
+            const nu = (i / steps) * 2 * Math.PI;
+            const r  = (a * (1 - e * e)) / (1 + e * Math.cos(nu));
+            const th = nu + omegaDeg * DEG;
+            const [px, py] = this.project(r * Math.cos(th), r * Math.sin(th));
+            pts.push(px.toFixed(1) + "," + py.toFixed(1));
+        }
+        return "M " + pts.join(" L ") + " Z";
     }
 
     // -----------------------------------------------------------------------
@@ -462,9 +461,8 @@ export class Visual implements IVisual {
 
         // Orbit rings
         planets.forEach(p => {
-            const path = ellipsePath(p.a, p.e, p.omega, this.scale, this.cx, this.cy);
             this.planetLayer.append("path")
-                .attr("d", path)
+                .attr("d", this.orbitPath(p.a, p.e, p.omega))
                 .attr("fill", "none")
                 .attr("stroke", p.color)
                 .attr("stroke-opacity", 0.25)
@@ -474,9 +472,7 @@ export class Visual implements IVisual {
         // Planet labels (static positions at current angle for clarity)
         planets.forEach(p => {
             const labelAngle = 45 * DEG;
-            const r = p.a * this.scale;
-            const lx = this.cx + r * Math.cos(labelAngle);
-            const ly = this.cy - r * Math.sin(labelAngle);
+            const [lx, ly] = this.project(p.a * Math.cos(labelAngle), p.a * Math.sin(labelAngle));
 
             this.planetLayer.append("text")
                 .attr("x", lx + 4)
@@ -514,7 +510,7 @@ export class Visual implements IVisual {
         const Mn = ((M % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
         const nu = meanToTrueAnomaly(Mn, a.e) / DEG;
         const [x, y] = orbitXY(a.a, a.e, a.omega, nu);
-        return [this.cx + x * this.scale, this.cy - y * this.scale];
+        return this.project(x, y);
     }
 
     // Draw only the orbit lines that are currently "active" (recently approached),
@@ -541,7 +537,7 @@ export class Visual implements IVisual {
             .classed("asteroid-orbit", true)
             .attr("fill", "none")
             .merge(sel)
-            .attr("d", d => ellipsePath(d.ast.a, d.ast.e, d.ast.omega, self.scale, self.cx, self.cy))
+            .attr("d", d => self.orbitPath(d.ast.a, d.ast.e, d.ast.omega))
             .attr("stroke", d => d.ast.hazardous ? "#ff4444" : "#9aa6bf")
             .attr("stroke-width", d => d.ast.hazardous ? 1.1 : 0.7)
             .attr("stroke-dasharray", d => d.ast.hazardous ? "none" : "2,4")
@@ -616,9 +612,8 @@ export class Visual implements IVisual {
             .each(function(d) {
                 const nu = planetTrueAnomaly(d, self.daysSinceJ2000);
                 const [x, y] = orbitXY(d.a, d.e, d.omega, nu);
-                d3.select(this)
-                    .attr("cx", self.cx + x * self.scale)
-                    .attr("cy", self.cy - y * self.scale);
+                const [px, py] = self.project(x, y);
+                d3.select(this).attr("cx", px).attr("cy", py);
             });
 
         planetDots.exit().remove();
