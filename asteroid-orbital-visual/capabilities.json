@@ -29,6 +29,10 @@
           "displayName": "Animation Speed",
           "type": { "numeric": true }
         },
+        "trailDays": {
+          "displayName": "Orbit Trail Days",
+          "type": { "numeric": true }
+        },
         "showHazardousOnly": {
           "displayName": "Hazardous Asteroids Only",
           "type": { "bool": true }

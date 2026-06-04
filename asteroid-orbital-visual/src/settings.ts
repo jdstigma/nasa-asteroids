@@ -19,6 +19,14 @@ class DisplayCard extends FormattingSettingsCard {
                        maxValue: { value: 100, type: powerbi.visuals.ValidatorType.Max } },
     });
 
+    trailDays = new formattingSettings.NumUpDown({
+        name:        "trailDays",
+        displayName: "Orbit Trail Days (fade time)",
+        value:       730,
+        options:     { minValue: { value: 30,    type: powerbi.visuals.ValidatorType.Min },
+                       maxValue: { value: 18250, type: powerbi.visuals.ValidatorType.Max } },
+    });
+
     showHazardousOnly = new formattingSettings.ToggleSwitch({
         name:        "showHazardousOnly",
         displayName: "Hazardous Asteroids Only",
@@ -27,7 +35,7 @@ class DisplayCard extends FormattingSettingsCard {
 
     name:  string = "display";
     displayName: string = "Display Options";
-    slices = [this.showAllPlanets, this.animationSpeed, this.showHazardousOnly];
+    slices = [this.showAllPlanets, this.animationSpeed, this.trailDays, this.showHazardousOnly];
 }
 
 export class VisualSettings extends FormattingSettingsModel {

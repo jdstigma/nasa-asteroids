@@ -73,6 +73,7 @@ interface AsteroidOrbit {
 
 interface ApproachEvent {
     date:        string;
+    dayJ2000:    number;   // approach date as days since J2000 (for the fade timeline)
     missDistAU:  number;
     velocityKmS: number;
     orbitingBody: string;
@@ -147,6 +148,7 @@ export class Visual implements IVisual {
     private animSpeed: number          = 5;   // days per animation frame
     private showHazardousOnly: boolean = false;
     private showAllPlanets: boolean    = true;
+    private trailDays: number          = 730; // how long an orbit line stays visible after an approach, then fades
 
     // Simulation clock bounds (days since J2000). The animation loops between these
     // instead of running forever; derived from the data's close-approach date range.
@@ -319,12 +321,14 @@ export class Visual implements IVisual {
                 this.showAllPlanets    = (objs["display"]?.["showAllPlanets"]    as boolean) ?? true;
                 this.showHazardousOnly = (objs["display"]?.["showHazardousOnly"] as boolean) ?? false;
                 this.animSpeed         = (objs["display"]?.["animationSpeed"]    as number)  ?? 5;
+                this.trailDays         = (objs["display"]?.["trailDays"]         as number)  ?? 730;
             }
             this.parseData(options.dataViews[0]);
         }
 
         this.drawPlanetOrbits();
-        this.drawAsteroidOrbits();
+        // Asteroid orbit lines are no longer drawn statically — they appear at each
+        // close approach and fade out, handled per-frame in updateMovingBodies().
     }
 
     // -----------------------------------------------------------------------
@@ -383,8 +387,11 @@ export class Visual implements IVisual {
 
             const missAU = getNum(row, COL.missDistAU);
             if (missAU > 0) {
+                const dateStr = getStr(row, COL.approachDate);
+                const ms = Date.parse(dateStr);
                 map.get(name)!.approaches.push({
-                    date:        getStr(row, COL.approachDate),
+                    date:        dateStr,
+                    dayJ2000:    isNaN(ms) ? NaN : (ms - this.J2000_MS) / 86400000,
                     missDistAU:  missAU,
                     velocityKmS: getNum(row, COL.velocityKmS),
                     orbitingBody: getStr(row, COL.orbitingBody),
@@ -450,27 +457,50 @@ export class Visual implements IVisual {
     }
 
     // -----------------------------------------------------------------------
-    private drawAsteroidOrbits(): void {
-        this.asteroidLayer.selectAll("*").remove();
+    // Orbit-line fade: an asteroid's orbit is fully visible at the moment of a
+    // close approach, then fades to nothing over `trailDays`. Returns 0..1.
+    private orbitFade(asteroid: AsteroidOrbit): number {
+        let best = 0;
+        for (const ap of asteroid.approaches) {
+            if (isNaN(ap.dayJ2000)) continue;
+            const age = this.daysSinceJ2000 - ap.dayJ2000;
+            if (age >= 0 && age <= this.trailDays) {
+                const f = 1 - age / this.trailDays;
+                if (f > best) best = f;
+            }
+        }
+        return best;
+    }
 
-        const visibleAsteroids = this.showHazardousOnly
+    // Draw only the orbit lines that are currently "active" (recently approached),
+    // fading them out over time. Keeps the map readable instead of a red haze.
+    private updateAsteroidOrbits(): void {
+        const visibleAsteroids = (this.showHazardousOnly
             ? this.asteroids.filter(a => a.hazardous)
-            : this.asteroids;
+            : this.asteroids
+        ).filter(a => a.a > 0 && a.a <= MAX_AU);
 
-        visibleAsteroids.forEach(asteroid => {
-            if (asteroid.a > MAX_AU) return;
+        // Compute fade for each and keep only the ones currently visible
+        const active = visibleAsteroids
+            .map(a => ({ ast: a, fade: this.orbitFade(a) }))
+            .filter(d => d.fade > 0.01);
 
-            const color = asteroid.hazardous ? "#ff4444" : "#888888";
-            const path  = ellipsePath(asteroid.a, asteroid.e, asteroid.omega, this.scale, this.cx, this.cy);
+        const self = this;
+        const sel = this.asteroidLayer.selectAll<SVGPathElement, { ast: AsteroidOrbit; fade: number }>("path.asteroid-orbit")
+            .data(active, d => d.ast.name);
 
-            this.asteroidLayer.append("path")
-                .attr("d", path)
-                .attr("fill", "none")
-                .attr("stroke", color)
-                .attr("stroke-opacity", asteroid.hazardous ? 0.35 : 0.18)
-                .attr("stroke-width", asteroid.hazardous ? 0.8 : 0.5)
-                .attr("stroke-dasharray", asteroid.hazardous ? "none" : "2,4");
-        });
+        sel.enter()
+            .append("path")
+            .classed("asteroid-orbit", true)
+            .attr("fill", "none")
+            .merge(sel)
+            .attr("d", d => ellipsePath(d.ast.a, d.ast.e, d.ast.omega, self.scale, self.cx, self.cy))
+            .attr("stroke", d => d.ast.hazardous ? "#ff4444" : "#9aa6bf")
+            .attr("stroke-width", d => d.ast.hazardous ? 1.1 : 0.7)
+            .attr("stroke-dasharray", d => d.ast.hazardous ? "none" : "2,4")
+            .attr("stroke-opacity", d => (d.ast.hazardous ? 0.85 : 0.5) * d.fade);
+
+        sel.exit().remove();
     }
 
     // -----------------------------------------------------------------------
@@ -490,6 +520,9 @@ export class Visual implements IVisual {
     // -----------------------------------------------------------------------
     private updateMovingBodies(): void {
         if (!this.svg || this.width === 0) return;
+
+        // Fading orbit lines (appear at each close approach, fade over trailDays)
+        this.updateAsteroidOrbits();
 
         const planets = this.showAllPlanets ? PLANETS : PLANETS.slice(0, 4);
 
