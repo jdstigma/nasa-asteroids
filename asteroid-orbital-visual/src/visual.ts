@@ -739,9 +739,13 @@ export class Visual implements IVisual {
             : this.asteroids
         ).filter(a => a.a > 0 && a.a <= MAX_AU);
 
-        // All asteroids are shown as dots (the log scale keeps them from piling up);
-        // the fade just brightens the ones currently in a close-approach window.
-        const dotData = visibleAsteroids.map(a => ({ ast: a, fade: this.orbitFadeInfo(a).fade }));
+        // An asteroid only appears once the sim clock reaches its first observation
+        // date (discovery). Objects with no known observation date are always shown.
+        const discovered = visibleAsteroids.filter(a =>
+            isNaN(a.firstSeenDay) || this.daysSinceJ2000 >= a.firstSeenDay);
+
+        // The fade just brightens the ones currently in a close-approach window.
+        const dotData = discovered.map(a => ({ ast: a, fade: this.orbitFadeInfo(a).fade }));
         const activeDots = dotData.filter(d => d.fade > 0.01);
 
         // Compute asteroid true anomaly based on period derived from semi-major axis (Kepler's 3rd law)
