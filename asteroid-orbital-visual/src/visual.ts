@@ -7,8 +7,6 @@ import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructor
 import VisualUpdateOptions    = powerbi.extensibility.visual.VisualUpdateOptions;
 import IVisual                = powerbi.extensibility.visual.IVisual;
 import DataView               = powerbi.DataView;
-import ITooltipService        = powerbi.extensibility.ITooltipService;
-import TooltipEventArgs       = powerbi.extensibility.TooltipEventArgs;
 
 // ---------------------------------------------------------------------------
 // Planet orbital elements (J2000, values in AU / degrees / days)

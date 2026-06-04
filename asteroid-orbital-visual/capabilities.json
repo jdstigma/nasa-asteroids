@@ -1,5 +1,4 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/core-build/capabilities.schema.json",
   "dataRoles": [
     {
       "name": "tableData",
@@ -18,10 +17,6 @@
       }
     }
   ],
-  "tooltips": {
-    "supportedTypes": { "default": true, "canvas": true },
-    "roles": ["tooltips"]
-  },
   "objects": {
     "display": {
       "displayName": "Display",
@@ -37,15 +32,10 @@
         "showHazardousOnly": {
           "displayName": "Hazardous Asteroids Only",
           "type": { "bool": true }
-        },
-        "darkMode": {
-          "displayName": "Dark Background",
-          "type": { "bool": true }
         }
       }
     }
   },
-  "supportsHighlight": false,
-  "supportsKPIShowInFocusMode": false,
-  "suppressDefaultTitle": true
+  "suppressDefaultTitle": true,
+  "privileges": []
 }

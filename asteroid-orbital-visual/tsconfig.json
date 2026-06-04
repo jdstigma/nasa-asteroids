@@ -11,5 +11,6 @@
     "target": "ES6",
     "useUnknownInCatchVariables": false
   },
+  "files": ["src/visual.ts"],
   "exclude": ["node_modules", ".tmp"]
 }
