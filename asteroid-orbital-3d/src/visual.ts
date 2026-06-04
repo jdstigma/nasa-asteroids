@@ -403,7 +403,6 @@ export class Visual implements IVisual {
         const blinkOn = Math.floor(performance.now() / 80) % 2 === 0;
         let n = 0;
         const activeForLines: { a: Asteroid; fade: number }[] = [];
-        const activeForLabels: { a: Asteroid; body: string; v: THREE.Vector3 }[] = [];
         for (const a of list) {
             if (!this.inObsWindow(a)) continue;
             const info = this.fadeInfo(a);
@@ -425,13 +424,12 @@ export class Visual implements IVisual {
             n++;
 
             if (fade >= this.lineThreshold) activeForLines.push({ a, fade });
-            if (info.body && fade >= this.lineThreshold) activeForLabels.push({ a, body: info.body, v });
         }
         this.asteroidGeom.setDrawRange(0, n);
         pos.needsUpdate = true; col.needsUpdate = true; size.needsUpdate = true;
 
         this.updateOrbitLines(activeForLines);
-        this.updateLabels(activeForLabels);
+        this.updatePlanetLabels();
     }
 
     private updateOrbitLines(active: { a: Asteroid; fade: number }[]): void {
@@ -461,38 +459,30 @@ export class Visual implements IVisual {
         }
     }
 
-    // Orbiting-body labels for active asteroids, projected from 3D to screen space
-    private updateLabels(active: { a: Asteroid; body: string; v: THREE.Vector3 }[]): void {
-        const seen = new Set<string>();
+    // Planet name labels, projected from each planet's 3D position to screen space
+    private updatePlanetLabels(): void {
         const tmp = new THREE.Vector3();
-        for (const { a, body, v } of active) {
-            seen.add(a.name);
-            tmp.copy(v).project(this.camera);
-            if (tmp.z > 1) { // behind the camera — hide
-                const ex = this.labelPool.get(a.name);
-                if (ex) ex.style.display = "none";
-                continue;
-            }
-            const x = (tmp.x * 0.5 + 0.5) * this.width;
-            const y = (-tmp.y * 0.5 + 0.5) * this.height;
-            let el = this.labelPool.get(a.name);
+        for (const mesh of this.planetMeshes) {
+            const p = (mesh as any).userData as PlanetDef;
+            let el = this.labelPool.get(p.name);
             if (!el) {
                 el = document.createElement("div");
                 Object.assign(el.style, {
                     position: "absolute", pointerEvents: "none", fontFamily: "sans-serif",
-                    fontSize: "10px", color: "#dfe9ff", textShadow: "0 0 3px #000, 0 0 3px #000",
-                    transform: "translate(-50%, -140%)", whiteSpace: "nowrap",
+                    fontSize: "11px", fontWeight: "600", color: "#ffffff",
+                    textShadow: "0 0 3px #000, 0 0 3px #000",
+                    transform: "translate(-50%, -160%)", whiteSpace: "nowrap",
                 } as CSSStyleDeclaration);
+                el.textContent = p.name;
+                el.style.color = "#" + p.color.toString(16).padStart(6, "0");
                 this.container.appendChild(el);
-                this.labelPool.set(a.name, el);
+                this.labelPool.set(p.name, el);
             }
-            el.textContent = body;
+            tmp.copy(mesh.position).project(this.camera);
+            if (tmp.z > 1) { el.style.display = "none"; continue; }
             el.style.display = "block";
-            el.style.left = x + "px";
-            el.style.top  = y + "px";
-        }
-        for (const [name, el] of this.labelPool) {
-            if (!seen.has(name)) { el.remove(); this.labelPool.delete(name); }
+            el.style.left = ((tmp.x * 0.5 + 0.5) * this.width) + "px";
+            el.style.top  = ((-tmp.y * 0.5 + 0.5) * this.height) + "px";
         }
     }
 
