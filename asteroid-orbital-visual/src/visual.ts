@@ -412,8 +412,11 @@ export class Visual implements IVisual {
         if (isFinite(minMs) && isFinite(maxMs) && maxMs > minMs) {
             this.simMinDays = (minMs - this.J2000_MS) / 86400000;
             this.simMaxDays = (maxMs - this.J2000_MS) / 86400000;
-            // Start the clock at the beginning of the data window
-            this.daysSinceJ2000 = this.simMinDays;
+            // Start the clock at "today" (clamped to the data window) — the modern era
+            // is dense with approaches, so asteroids appear right away instead of the
+            // sparse early years.
+            const todayDays = (Date.now() - this.J2000_MS) / 86400000;
+            this.daysSinceJ2000 = Math.max(this.simMinDays, Math.min(todayDays, this.simMaxDays));
         }
 
         // Reset zoom to the default (log scale already frames everything) on reload
