@@ -120,6 +120,9 @@ export class Visual implements IVisual {
     private zoomBehavior:  d3.ZoomBehavior<SVGSVGElement, unknown>;
     private infoBox:    d3.Selection<HTMLDivElement, unknown, null, undefined>;
     private legend:     d3.Selection<HTMLDivElement, unknown, null, undefined>;
+    private playBtn:    d3.Selection<HTMLButtonElement, unknown, null, undefined>;
+    private scrubber:   d3.Selection<HTMLInputElement, unknown, null, undefined>;
+    private dateLabel:  d3.Selection<HTMLSpanElement, unknown, null, undefined>;
 
     private width:  number = 800;
     private height: number = 800;
@@ -137,6 +140,11 @@ export class Visual implements IVisual {
     private showAllPlanets: boolean    = true;
     private trailDays: number          = 730; // how long an orbit line stays visible after an approach, then fades
     private initialZoomApplied: boolean = false;
+
+    // Playback state
+    private paused:      boolean = false;
+    private playDir:     number  = 1;       // +1 forward, -1 rewind
+    private isScrubbing: boolean = false;   // true while the user drags the timeline slider
 
     // Simulation clock bounds (days since J2000). The animation loops between these
     // instead of running forever; derived from the data's close-approach date range.
@@ -245,6 +253,8 @@ export class Visual implements IVisual {
             <div style="margin-top:4px;color:#888;font-size:10px">Hover asteroid for details</div>
             <div style="color:#888;font-size:10px">Scroll to zoom · drag to pan · double-click to reset</div>
         `);
+
+        this.buildControls();
 
         // Zoom & pan — scroll wheel zooms, drag pans, double-click resets
         this.zoomBehavior = d3.zoom<SVGSVGElement, unknown>()
@@ -574,14 +584,99 @@ export class Visual implements IVisual {
     }
 
     // -----------------------------------------------------------------------
+    private dayToDate(day: number): string {
+        const d = new Date(this.J2000_MS + day * 86400000);
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    }
+
+    private buildControls(): void {
+        const bar = this.container.append("div")
+            .classed("controls", true)
+            .style("position", "absolute")
+            .style("bottom", "8px")
+            .style("left", "50%")
+            .style("transform", "translateX(-50%)")
+            .style("display", "flex")
+            .style("align-items", "center")
+            .style("gap", "6px")
+            .style("background", "rgba(0,0,0,0.65)")
+            .style("padding", "6px 10px")
+            .style("border-radius", "6px")
+            .style("font-family", "sans-serif")
+            .style("font-size", "12px")
+            .style("color", "#ddd")
+            .style("user-select", "none");
+
+        const mkBtn = (label: string, title: string) =>
+            bar.append("button")
+                .attr("title", title)
+                .style("background", "#1b2240")
+                .style("color", "#dfe6f5")
+                .style("border", "1px solid #33406b")
+                .style("border-radius", "4px")
+                .style("padding", "2px 8px")
+                .style("cursor", "pointer")
+                .style("font-size", "13px")
+                .text(label);
+
+        mkBtn("⏮", "Jump to start")
+            .on("click", () => { this.daysSinceJ2000 = this.simMinDays; this.refreshScrubber(); });
+        mkBtn("⏪", "Rewind")
+            .on("click", () => { this.playDir = -1; this.paused = false; this.updatePlayBtn(); });
+
+        this.playBtn = mkBtn("⏸", "Play / Pause")
+            .on("click", () => { this.paused = !this.paused; this.updatePlayBtn(); }) as any;
+
+        mkBtn("⏩", "Forward")
+            .on("click", () => { this.playDir = 1; this.paused = false; this.updatePlayBtn(); });
+        mkBtn("⏭", "Jump to end")
+            .on("click", () => { this.daysSinceJ2000 = this.simMaxDays; this.refreshScrubber(); });
+
+        this.scrubber = bar.append("input")
+            .attr("type", "range")
+            .attr("min", "0")
+            .attr("max", "1000")
+            .attr("value", "0")
+            .style("width", "180px")
+            .style("cursor", "pointer") as any;
+
+        this.scrubber
+            .on("mousedown", () => { this.isScrubbing = true; })
+            .on("mouseup",   () => { this.isScrubbing = false; })
+            .on("input", (event: Event) => {
+                const frac = +(event.target as HTMLInputElement).value / 1000;
+                this.daysSinceJ2000 = this.simMinDays + frac * (this.simMaxDays - this.simMinDays);
+            });
+
+        this.dateLabel = bar.append("span")
+            .style("min-width", "78px")
+            .style("font-family", "monospace")
+            .style("color", "#9fb0d8")
+            .text("—") as any;
+    }
+
+    private updatePlayBtn(): void {
+        if (this.playBtn) this.playBtn.text(this.paused ? "▶" : "⏸");
+    }
+
+    private refreshScrubber(): void {
+        if (!this.scrubber || this.simMaxDays <= this.simMinDays) return;
+        const frac = (this.daysSinceJ2000 - this.simMinDays) / (this.simMaxDays - this.simMinDays);
+        if (!this.isScrubbing) this.scrubber.property("value", String(Math.round(frac * 1000)));
+        if (this.dateLabel) this.dateLabel.text(this.dayToDate(this.daysSinceJ2000));
+    }
+
+    // -----------------------------------------------------------------------
     private startAnimation(): void {
         const tick = () => {
-            this.daysSinceJ2000 += this.animSpeed;
-            // Loop back to the start of the data window instead of advancing forever
-            if (this.daysSinceJ2000 > this.simMaxDays) {
-                this.daysSinceJ2000 = this.simMinDays;
+            if (!this.paused && !this.isScrubbing) {
+                this.daysSinceJ2000 += this.animSpeed * this.playDir;
+                // Loop within the data window in both directions
+                if (this.daysSinceJ2000 > this.simMaxDays) this.daysSinceJ2000 = this.simMinDays;
+                if (this.daysSinceJ2000 < this.simMinDays) this.daysSinceJ2000 = this.simMaxDays;
             }
             this.updateMovingBodies();
+            this.refreshScrubber();
             this.animFrame = requestAnimationFrame(tick);
         };
         this.animFrame = requestAnimationFrame(tick);
@@ -629,14 +724,15 @@ export class Visual implements IVisual {
             : this.asteroids
         ).filter(a => a.a > 0 && a.a <= MAX_AU);
 
-        const activeDots = visibleAsteroids
-            .map(a => ({ ast: a, fade: this.orbitFadeInfo(a).fade }))
-            .filter(d => d.fade > 0.01);
+        // All asteroids are shown as dots (the log scale keeps them from piling up);
+        // the fade just brightens the ones currently in a close-approach window.
+        const dotData = visibleAsteroids.map(a => ({ ast: a, fade: this.orbitFadeInfo(a).fade }));
+        const activeDots = dotData.filter(d => d.fade > 0.01);
 
         // Compute asteroid true anomaly based on period derived from semi-major axis (Kepler's 3rd law)
         // Period (days) = 365.25 * a^1.5  (for a in AU, relative to Sun's mass)
         const asteroidDots = this.asteroidLayer.selectAll<SVGCircleElement, { ast: AsteroidOrbit; fade: number }>("circle.asteroid-dot")
-            .data(activeDots, d => d.ast.name);
+            .data(dotData, d => d.ast.name);
 
         const dotRadius = (a: AsteroidOrbit): number => {
             const base = a.hazardous ? 3.5 : 2;
@@ -660,8 +756,8 @@ export class Visual implements IVisual {
                 self.hideTooltip();
             })
             .merge(asteroidDots)
-            .attr("r", d => dotRadius(d.ast))
-            .attr("opacity", d => Math.min(1, 0.25 + d.fade * 0.75))
+            .attr("r", d => dotRadius(d.ast) * (0.7 + d.fade * 0.6))
+            .attr("opacity", d => 0.3 + d.fade * 0.7)
             .each(function(d) {
                 const [px, py] = self.asteroidPos(d.ast);
                 d3.select(this).attr("cx", px).attr("cy", py);
