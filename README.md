@@ -53,7 +53,7 @@ nasa asteroids/
 1. Power BI Desktop → Visualizations pane → **`...` → Import a visual from a file**
 2. Pick `release/asteroid-orbital-map-1.0.0.pbiviz` (2D) or `release/asteroid-orbital-map-3d-1.0.0.pbiviz` (3D)
 3. Load the data via **Home → Get data → Web** and paste:
-   `https://raw.githubusercontent.com/jdstigma/nasa-asteroids/main/asteroids_flat.csv`
+   `https://raw.githubusercontent.com/jdstigma/NASA-Close-Approach-Asteroids-Visual-Models/main/asteroids_flat.csv`
    *(or paste `powerquery_web_connection.m` into the Advanced Editor for typed columns)*
 4. Map the fields (below) and set numeric/date fields to **Don't summarize**
 

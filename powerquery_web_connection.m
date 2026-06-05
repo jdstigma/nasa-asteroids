@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 let
     Source = Csv.Document(
-        Web.Contents("https://raw.githubusercontent.com/jdstigma/nasa-asteroids/main/asteroids_flat.csv"),
+        Web.Contents("https://raw.githubusercontent.com/jdstigma/NASA-Close-Approach-Asteroids-Visual-Models/main/asteroids_flat.csv"),
         [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]
     ),
 
