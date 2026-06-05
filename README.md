@@ -1,4 +1,6 @@
-# NASA Close Approach Asteroids — Power BI Custom Visuals
+# NASA Close-Approach Asteroids: Visual Models
+
+*Power BI custom visuals — 2D & 3D*
 
 Two animated solar-system Power BI custom visuals — **2D** and **3D** — built from
 [NASA CNEOS close-approach data](https://cneos.jpl.nasa.gov/ca/). Planets orbit the Sun
@@ -7,6 +9,16 @@ toward each close approach, and fade out at last observation — all driven by a
 1930–2026 timeline.
 
 ![3D solar system with asteroid close-approach orbits and labeled planets](assets/preview.png)
+
+## Download & open (no build required)
+
+Grab the [**latest release**](https://github.com/jdstigma/NASA-Close-Approach-Asteroids-Visual-Models/releases/latest):
+
+| Download | What it is |
+|---|---|
+| `NASA Close Approach Asteroids - Model.pbix` | Open directly in Power BI Desktop — the visual **and data are already embedded**, ready to explore |
+| `asteroid-orbital-map-1.0.0.pbiviz` | The 2D custom visual, to import into your own report |
+| `asteroid-orbital-map-3d-1.0.0.pbiviz` | The 3D custom visual, to import into your own report |
 
 ## The two visuals
 
@@ -43,13 +55,21 @@ nasa asteroids/
 ├── make_icon.py / make_icon_3d.py
 ├── asteroid-orbital-visual/    # 2D visual source (D3)
 ├── asteroid-orbital-3d/        # 3D visual source (Three.js)
-├── release/                    # Prebuilt .pbiviz files — import these directly
-└── reports/                    # Published Power BI report (.pbix, via Git LFS)
+├── release/                    # Prebuilt .pbiviz files (also attached to GitHub Releases)
+│   ├── asteroid-orbital-map-1.0.0.pbiviz
+│   └── asteroid-orbital-map-3d-1.0.0.pbiviz
+└── reports/                    # Published Power BI report (via Git LFS)
+    └── NASA Close Approach Asteroids - Model.pbix
 ```
 
 ## Quick start
 
-### Option A — import a prebuilt visual (no build)
+### Option A — open the ready-made report (easiest)
+Download `NASA Close Approach Asteroids - Model.pbix` from the
+[latest release](https://github.com/jdstigma/NASA-Close-Approach-Asteroids-Visual-Models/releases/latest)
+and open it in Power BI Desktop. The visual and data are already in place — nothing to map.
+
+### Option B — import a prebuilt visual into your own report
 1. Power BI Desktop → Visualizations pane → **`...` → Import a visual from a file**
 2. Pick `release/asteroid-orbital-map-1.0.0.pbiviz` (2D) or `release/asteroid-orbital-map-3d-1.0.0.pbiviz` (3D)
 3. Load the data via **Home → Get data → Web** and paste:
@@ -57,13 +77,13 @@ nasa asteroids/
    *(or paste `powerquery_web_connection.m` into the Advanced Editor for typed columns)*
 4. Map the fields (below) and set numeric/date fields to **Don't summarize**
 
-### Option B — build from source
+### Option C — build from source
 ```bash
 # Install Node.js LTS, then:
 npm install -g powerbi-visuals-tools
 cd asteroid-orbital-visual    # or asteroid-orbital-3d
 npm install
-pbiviz package                # → dist/*.pbiviz
+pbiviz package                # → dist/*.pbiviz (named by the visual GUID)
 ```
 
 ## Field mapping
