@@ -1,0 +1,25 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/core-build/pbiviz.schema.json",
+  "visual": {
+    "name": "asteroidImpactTable",
+    "displayName": "Asteroid Impact Table",
+    "guid": "asteroidImpactTableC3D4E5F607080003",
+    "visualClassName": "Visual",
+    "version": "1.0.0.0",
+    "description": "Table of asteroids whose perihelion/aphelion range (expanded by orbit uncertainty) intersects a planetary orbital band, from NASA CNEOS data",
+    "supportUrl": "https://github.com/jdstigma/NASA-Close-Approach-Asteroids-Visual-Models",
+    "gitHubUrl": "https://github.com/jdstigma/NASA-Close-Approach-Asteroids-Visual-Models"
+  },
+  "apiVersion": "5.3.0",
+  "author": {
+    "name": "jdstigma",
+    "email": "placeholder@example.com"
+  },
+  "assets": {
+    "icon": "assets/icon.png"
+  },
+  "externalJS": [],
+  "style": "style/visual.less",
+  "capabilities": "capabilities.json",
+  "stringResources": []
+}

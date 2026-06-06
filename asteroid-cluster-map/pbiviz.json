@@ -1,0 +1,25 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/core-build/pbiviz.schema.json",
+  "visual": {
+    "name": "asteroidClusterMap",
+    "displayName": "Asteroid Cluster Map",
+    "guid": "asteroidClusterMapA1B2C3D4E5F60001",
+    "visualClassName": "Visual",
+    "version": "1.0.0.0",
+    "description": "K-means orbital clustering of near-Earth asteroids with 1-sigma error ellipses, built from NASA CNEOS data",
+    "supportUrl": "https://github.com/jdstigma/NASA-Close-Approach-Asteroids-Visual-Models",
+    "gitHubUrl": "https://github.com/jdstigma/NASA-Close-Approach-Asteroids-Visual-Models"
+  },
+  "apiVersion": "5.3.0",
+  "author": {
+    "name": "jdstigma",
+    "email": "placeholder@example.com"
+  },
+  "assets": {
+    "icon": "assets/icon.png"
+  },
+  "externalJS": [],
+  "style": "style/visual.less",
+  "capabilities": "capabilities.json",
+  "stringResources": []
+}

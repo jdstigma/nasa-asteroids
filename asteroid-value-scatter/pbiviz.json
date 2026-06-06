@@ -1,0 +1,25 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/core-build/pbiviz.schema.json",
+  "visual": {
+    "name": "asteroidValueScatter",
+    "displayName": "Asteroid Value Scatter",
+    "guid": "asteroidValueScatterB2C3D4E5F6070002",
+    "visualClassName": "Visual",
+    "version": "1.0.0.0",
+    "description": "Scatter plot of asteroid value metrics: diameter vs approach velocity, point size by proximity, from NASA CNEOS data",
+    "supportUrl": "https://github.com/jdstigma/NASA-Close-Approach-Asteroids-Visual-Models",
+    "gitHubUrl": "https://github.com/jdstigma/NASA-Close-Approach-Asteroids-Visual-Models"
+  },
+  "apiVersion": "5.3.0",
+  "author": {
+    "name": "jdstigma",
+    "email": "placeholder@example.com"
+  },
+  "assets": {
+    "icon": "assets/icon.png"
+  },
+  "externalJS": [],
+  "style": "style/visual.less",
+  "capabilities": "capabilities.json",
+  "stringResources": []
+}

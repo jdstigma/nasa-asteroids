@@ -1,0 +1,49 @@
+{
+  "dataRoles": [
+    {
+      "name": "tableData",
+      "kind": "GroupingOrMeasure",
+      "displayName": "Data Fields",
+      "description": "Map fields from the flattened asteroid close-approach table"
+    }
+  ],
+  "dataViewMappings": [
+    {
+      "table": {
+        "rows": {
+          "for": { "in": "tableData" },
+          "dataReductionAlgorithm": { "window": { "count": 30000 } }
+        }
+      }
+    }
+  ],
+  "objects": {
+    "display": {
+      "displayName": "Display",
+      "properties": {
+        "sigmaLevel": {
+          "displayName": "Uncertainty Confidence (σ)",
+          "type": { "numeric": true }
+        },
+        "gravFocus": {
+          "displayName": "Apply Gravitational Focusing",
+          "type": { "bool": true }
+        },
+        "impactsOnly": {
+          "displayName": "Show Impacts Only",
+          "type": { "bool": true }
+        },
+        "earthOnly": {
+          "displayName": "Earth Approaches Only",
+          "type": { "bool": true }
+        },
+        "hazardousFirst": {
+          "displayName": "Hazardous Asteroids First",
+          "type": { "bool": true }
+        }
+      }
+    }
+  },
+  "suppressDefaultTitle": true,
+  "privileges": []
+}

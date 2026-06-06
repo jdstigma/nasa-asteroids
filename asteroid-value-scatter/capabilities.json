@@ -1,0 +1,65 @@
+{
+  "dataRoles": [
+    {
+      "name": "tableData",
+      "kind": "GroupingOrMeasure",
+      "displayName": "Data Fields",
+      "description": "Map fields from the flattened asteroid close-approach table"
+    }
+  ],
+  "dataViewMappings": [
+    {
+      "table": {
+        "rows": {
+          "for": { "in": "tableData" },
+          "dataReductionAlgorithm": { "window": { "count": 30000 } }
+        }
+      }
+    }
+  ],
+  "objects": {
+    "display": {
+      "displayName": "Display",
+      "properties": {
+        "showHazardousOnly": {
+          "displayName": "Hazardous Asteroids Only",
+          "type": { "bool": true }
+        },
+        "highlightQuadrant": {
+          "displayName": "Highlight High-Value Zone",
+          "type": { "bool": true }
+        },
+        "maxMissDistAU": {
+          "displayName": "Max Miss Distance to Show (AU)",
+          "type": { "numeric": true }
+        },
+        "maxPointSize": {
+          "displayName": "Max Dot Size (px)",
+          "type": { "numeric": true }
+        },
+        "sizeContrast": {
+          "displayName": "Size Contrast",
+          "type": { "numeric": true }
+        },
+        "showCatchable": {
+          "displayName": "Mark Catchable Asteroids",
+          "type": { "bool": true }
+        },
+        "logVelocityAxis": {
+          "displayName": "Log Velocity (X) Axis",
+          "type": { "bool": true }
+        },
+        "showTrendLine": {
+          "displayName": "Show Trend Line",
+          "type": { "bool": true }
+        },
+        "catchableKmh": {
+          "displayName": "Catchable Speed Limit (km/h)",
+          "type": { "numeric": true }
+        }
+      }
+    }
+  },
+  "suppressDefaultTitle": true,
+  "privileges": []
+}
