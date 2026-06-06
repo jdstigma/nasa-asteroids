@@ -35,7 +35,7 @@ Grab the [**latest release**](https://github.com/jdstigma/NASA-Close-Approach-As
 
 | Download | What it is |
 |---|---|
-| `NASA Close Approach Asteroids - Model.pbix` | Open directly in Power BI Desktop — visuals and data already embedded |
+| `NASA Asteroid Visual Models.pbix` | Open directly in Power BI Desktop — visuals and data already embedded |
 | `asteroid-orbital-map-1.0.0.pbiviz` | 2D orbital map |
 | `asteroid-orbital-map-3d-1.0.0.pbiviz` | 3D orbital map (textured planets) |
 | `asteroid-cluster-map-1.0.0.pbiviz` | Orbital-family clustering |
@@ -125,7 +125,7 @@ nasa asteroids/
 │   ├── asteroid-value-scatter-1.0.0.pbiviz
 │   └── asteroid-impact-table-1.0.0.pbiviz
 └── reports/                      # Published Power BI report (via Git LFS)
-    └── NASA Close Approach Asteroids - Model.pbix
+    └── NASA Asteroid Visual Models.pbix
 ```
 
 ## Build from source
